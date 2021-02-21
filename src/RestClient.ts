@@ -34,11 +34,11 @@ export default class RestClient {
                         this.authRequest = null;
                         this.logged = true;
                         if(response.headers['set-cookie']) {
-                            const cookie = response.headers['set-cookie']
-                                .map((c) => c.split(';'))
+                            const cookie = response.headers['set-cookie'];
+                                /*.map((c) => c.split(';'))
                                 .reduce((cookies, cookie) => cookies.concat(cookie))
-                                .filter((cookie) => cookie.startsWith('JSESSIONID'));
-                            axios.defaults.headers.common['Cookie'] = cookie + ';';
+                                .filter((cookie) => cookie.startsWith('JSESSIONID'));*/
+                            axios.defaults.headers.common['Cookie'] = cookie;
                         }
                     })
                     .finally(() => {

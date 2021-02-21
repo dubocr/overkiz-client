@@ -1,7 +1,4 @@
-import axios from 'axios';
 import { default as events, EventEmitter } from 'events';
-import pollingtoevent from 'polling-to-event';
-import { URLSearchParams } from 'url';
 import Device from './Device';
 import RestClient from './RestClient';
 
@@ -31,14 +28,13 @@ export interface ExecutionStateEvent {
 export class Command {
     type: number = 1;
     name: string = '';
-    parameters: unknown[] = [];
+    parameters: any[] = [];
 
-    constructor(name, parameters: any = undefined) {
+    constructor(name, parameters?: any) {
         this.name = name;
-        if (typeof(parameters)==='undefined') {
+        if (parameters === undefined) {
             parameters = [];
-        }
-        if (!Array.isArray(parameters)) {
+        } else if (!Array.isArray(parameters)) {
             parameters = [parameters];
         }
         this.parameters = parameters;
@@ -51,6 +47,17 @@ export class Action extends EventEmitter {
 
     constructor(public readonly label: string, public highPriority: boolean) {
         super();
+    }
+
+    addCommands(commands: Array<Command>) {
+        this.commands.forEach(command => {
+            const existing = this.commands.find((cmd) => cmd.name === command.name);
+            if(existing) {
+                existing.parameters = command.parameters;
+            } else {
+                this.commands.push(command);
+            }
+        });   
     }
 
     toJSON() {
@@ -81,6 +88,7 @@ export class Execution {
     }
 
     onStateUpdate(state, event) {
+        Log(event);
         if(event.failureType && event.failedCommands) {
             this.actions.forEach((action) => {
                 const failure = event.failedCommands.find((c) => c.deviceURL === action.deviceURL);
@@ -127,8 +135,8 @@ export default class OverkizClient extends events.EventEmitter {
     executionPool: Execution[] = [];
     stateChangedEventListener = null;
     execution: Execution = new Execution();
-
-    executionTimeout;
+    executionPromise;
+    
     restClient: RestClient;
 
     devices: Array<Device> = new Array<Device>();
@@ -193,7 +201,7 @@ export default class OverkizClient extends events.EventEmitter {
         return this.restClient.get('/actionGroups').then((result) => result.map((data) => data as ActionGroup));
     }
 
-    private async registerListener() {
+    private registerListener() {
         return this.restClient.post('/events/register')
             .then((data) => {
                 this.listenerId = data.id;
@@ -225,13 +233,16 @@ export default class OverkizClient extends events.EventEmitter {
     */
     public executeAction(action) {
         this.execution.addAction(action);
-        clearTimeout(this.executionTimeout);
-        return new Promise((resolve, reject) => {
-            this.executionTimeout = setTimeout(() => {
-                this.execute(this.execution.hasPriority() ? 'apply/highPriority' : 'apply', this.execution).then(resolve).catch(reject);
-                this.execution = new Execution();
-            }, 100);
-        });
+        if(!this.executionPromise) {
+            this.executionPromise = new Promise((resolve, reject) => {
+                setTimeout(() => {
+                    this.executionPromise = null;
+                    this.execute(this.execution.hasPriority() ? 'apply/highPriority' : 'apply', this.execution).then(resolve).catch(reject);
+                    this.execution = new Execution();
+                }, 100);
+            });
+        }
+        return this.executionPromise;
     }
 
     /*

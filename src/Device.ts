@@ -1,4 +1,4 @@
-import Client, { default as OverkizClient, Action, Command } from './Client';
+import Client, { Action } from './Client';
 import { EventEmitter } from 'events';
 import { v5 as UUIDv5, validate as validateUUID } from 'uuid';
 
@@ -33,6 +33,9 @@ export default class Device extends EventEmitter {
 
     public sensors: Device[] = [];
     private executionId;
+
+    private actionPromise;
+    private action;
 
     constructor(api: Client) {
         super();
@@ -77,6 +80,10 @@ export default class Device extends EventEmitter {
 
     hasCommand(name: string): boolean {
         return this.definition.commands.find((command: CommandDefinition) => command.commandName === name) !== undefined;
+    }
+
+    hasState(name: string): boolean {
+        return this.states.find((state: State) => state.name === name) !== undefined;
     }
 
     hasSensor(widget: string): boolean {
@@ -139,15 +146,29 @@ export default class Device extends EventEmitter {
             this.cancelCommand();
         }
 
-        title = this.label + ' - ' + title;
-        const highPriority = this.states['io:PriorityLockLevelState'] ? true : false;
-        const action = new Action(title, highPriority);
-        action.deviceURL = this.deviceURL;
-        action.commands = commands;
+        if(!this.actionPromise) {
+            title = this.label + ' - ' + title;
+            const highPriority = this.hasState('io:PriorityLockLevelState') ? true : false;
+            this.action = new Action(title, highPriority);
+            this.action.deviceURL = this.deviceURL;
+            this.action.commands = commands;
 
-        return this.api.executeAction(action).then((executionId) => {
-            this.executionId = executionId;
-            return action;
-        });
+            this.actionPromise = new Promise((resolve, reject) => {
+                setTimeout(() => {
+                    const action = this.action;
+                    this.actionPromise = null;
+                    this.api.executeAction(action)
+                        .then((executionId) => {
+                            this.executionId = executionId;
+                            resolve(action);
+                        })
+                        .catch(reject);
+                    this.action = null;
+                }, 100);
+            });
+        } else {
+            this.action.addCommands(commands);
+        }
+        return this.actionPromise;
     }
 }
