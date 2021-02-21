@@ -33,7 +33,7 @@ export class Command {
     name: string = '';
     parameters: unknown[] = [];
 
-    constructor(name, parameters) {
+    constructor(name, parameters: any = undefined) {
         this.name = name;
         if (typeof(parameters)==='undefined') {
             parameters = [];
@@ -85,13 +85,13 @@ export class Execution {
             this.actions.forEach((action) => {
                 const failure = event.failedCommands.find((c) => c.deviceURL === action.deviceURL);
                 if(failure) {
-                    action.emit('state', ExecutionState.FAILED, failure);
+                    action.emit('update', ExecutionState.FAILED, failure);
                 } else {
-                    action.emit('state', ExecutionState.COMPLETED);
+                    action.emit('update', ExecutionState.COMPLETED);
                 }
             });
         } else {
-            this.actions.forEach((action) => action.emit('state', state, event));
+            this.actions.forEach((action) => action.emit('update', state, event));
         }
     }
 
@@ -283,6 +283,12 @@ export default class OverkizClient extends events.EventEmitter {
                     (await this.getDevices()).forEach((newDevice) => {
                         const device = this.devices[newDevice.deviceURL];
                         if(device) {
+                            newDevice.states.forEach(state => {
+                                const s = device.getState(state.name);
+                                if(s) {
+                                    s.value = state.value;
+                                }
+                            });
                             device.emit('states', newDevice.states);
                         }
                     });
@@ -309,8 +315,15 @@ export default class OverkizClient extends events.EventEmitter {
             const data = await this.restClient.post('/events/' + this.listenerId + '/fetch');
             for (const event of data) {
                 //Log(event);
+                //console.log(event);
                 if (event.name === 'DeviceStateChangedEvent') {
                     const device = this.devices[event.deviceURL];
+                    event.deviceStates.forEach(state => {
+                        const s = device.getState(state.name);
+                        if(s) {
+                            s.value = state.value;
+                        }
+                    });
                     device.emit('states', event.deviceStates);
                 } else if (event.name === 'ExecutionStateChangedEvent') {
                     //Log(event);

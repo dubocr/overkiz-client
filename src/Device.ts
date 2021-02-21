@@ -1,10 +1,20 @@
-import Client, { default as OverkizClient, Action } from './Client';
+import Client, { default as OverkizClient, Action, Command } from './Client';
 import { EventEmitter } from 'events';
+import { v5 as UUIDv5, validate as validateUUID } from 'uuid';
 
 export interface State {
     name: string;
     type: number;
     value: string;
+}
+
+export interface CommandDefinition {
+    commandName: string;
+    nparams: number;
+}
+
+export interface Definition {
+    commands: CommandDefinition[];
 }
 
 export default class Device extends EventEmitter {
@@ -19,7 +29,7 @@ export default class Device extends EventEmitter {
     controllableName: string = '';
     states: Array<State> = [];
 
-    public definition = { commands: [] };
+    public definition: Definition = { commands: [] };
 
     public sensors: Device[] = [];
     private executionId;
@@ -27,6 +37,10 @@ export default class Device extends EventEmitter {
     constructor(api: Client) {
         super();
         this.api = api;
+    }
+
+    get uuid() {
+        return validateUUID(this.oid) ? this.oid : UUIDv5(this.oid, '6ba7b812-9dad-11d1-80b4-00c04fd430c8');
     }
 
     get serialNumber() {
@@ -52,13 +66,21 @@ export default class Device extends EventEmitter {
     }
 
     get manufacturer() {
-        const manufacturer = this._look_state('core:ManufacturerNameState');
+        const manufacturer = this.get('core:ManufacturerNameState');
         return manufacturer !== null ? manufacturer : 'Somfy';
     }
 
     get model() {
-        const model = this._look_state('core:ModelState');
+        const model = this.get('core:ModelState');
         return model !== null ? model : this.uiClass;
+    }
+
+    hasCommand(name: string): boolean {
+        return this.definition.commands.find((command: CommandDefinition) => command.commandName === name) !== undefined;
+    }
+
+    hasSensor(widget: string): boolean {
+        return this.sensors.find((sensor) => sensor.widget === widget) !== undefined;
     }
 
     isMainDevice() {
@@ -78,7 +100,18 @@ export default class Device extends EventEmitter {
         this.sensors.push(device);
     }
 
-    _look_state(stateName) {
+    getState(stateName) {
+        if(this.states !== null) {
+            for (const state of this.states) {
+                if (state.name === stateName) {
+                    return state;
+                }
+            }
+        }
+        return null;
+    }
+
+    get(stateName) {
         if(this.states !== null) {
             for (const state of this.states) {
                 if (state.name === stateName) {
@@ -87,6 +120,10 @@ export default class Device extends EventEmitter {
             }
         }
         return null;
+    }
+
+    get isIdle() {
+        return !(this.executionId in this.api.executionPool);
     }
 
     isCommandInProgress() {

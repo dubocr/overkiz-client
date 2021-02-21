@@ -33,11 +33,13 @@ export default class RestClient {
                     .then((response) => {
                         this.authRequest = null;
                         this.logged = true;
-                        const cookie = response.headers['set-cookie']
-                            .map((c) => c.split(';'))
-                            .reduce((cookies, cookie) => cookies.concat(cookie))
-                            .filter((cookie) => cookie.startsWith('JSESSIONID'));
-                        axios.defaults.headers.common['Cookie'] = cookie + ';';
+                        if(response.headers['set-cookie']) {
+                            const cookie = response.headers['set-cookie']
+                                .map((c) => c.split(';'))
+                                .reduce((cookies, cookie) => cookies.concat(cookie))
+                                .filter((cookie) => cookie.startsWith('JSESSIONID'));
+                            axios.defaults.headers.common['Cookie'] = cookie + ';';
+                        }
                     })
                     .finally(() => {
                         this.authRequest = null;
