@@ -152,8 +152,8 @@ export default class OverkizClient extends events.EventEmitter {
         this.debug = config['debug'] || false;
         this.debugUrl = config['debugUrl'] || false;
         this.execPollingPeriod = config['execPollingPeriod'] || 2; // Poll for execution events every 2 seconds by default
-        this.pollingPeriod = config['pollingPeriod'] || 0; // Don't continuously poll for events by default
-        this.refreshPeriod = config['refreshPeriod'] || (60 * 30); // Refresh device states every 30 minutes by default
+        this.pollingPeriod = config['pollingPeriod'] || 60; // Don't continuously poll for events by default (in seconds)
+        this.refreshPeriod = config['refreshPeriod'] || (60 * 30); // Refresh device states every 30 minutes by default (in seconds)
         this.service = config['service'] || 'TaHoma';
 
         if (!config['user'] || !config['password']) {

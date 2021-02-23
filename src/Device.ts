@@ -99,6 +99,8 @@ export default class Device extends EventEmitter {
                 case 'AtlanticPassAPCHeatingZone':
                 case 'AtlanticPassAPCHeatingAndCoolingZone':
                     return true;
+                case 'TemperatureSensor': // Outdoor sensor for PassAPC
+                    return this.componentId === 3;
             }
         }
     }
