@@ -1,4 +1,3 @@
-import Client, { Action } from './Client';
 import { EventEmitter } from 'events';
 import { v5 as UUIDv5, validate as validateUUID } from 'uuid';
 
@@ -18,9 +17,6 @@ export interface Definition {
 }
 
 export default class Device extends EventEmitter {
-
-    private api: Client;
-
     oid: string = '';
     deviceURL: string = '';
     label: string = '';
@@ -32,22 +28,9 @@ export default class Device extends EventEmitter {
     public definition: Definition = { commands: [] };
 
     public sensors: Device[] = [];
-    private executionId;
-
-    private actionPromise;
-    private action;
-
-    constructor(api: Client) {
-        super();
-        this.api = api;
-    }
 
     get uuid() {
         return validateUUID(this.oid) ? this.oid : UUIDv5(this.oid, '6ba7b812-9dad-11d1-80b4-00c04fd430c8');
-    }
-
-    get serialNumber() {
-        return this.deviceURL;
     }
 
     get componentId() {
@@ -76,6 +59,14 @@ export default class Device extends EventEmitter {
     get model() {
         const model = this.get('core:ModelState');
         return model !== null ? model : this.uiClass;
+    }
+
+    get serialNumber() {
+        return this.uuid;
+    }
+
+    get protocol(): string {
+        return this.controllableName.split(':').shift() || '';
     }
 
     hasCommand(name: string): boolean {
@@ -129,48 +120,5 @@ export default class Device extends EventEmitter {
             }
         }
         return null;
-    }
-
-    get isIdle() {
-        return !(this.executionId in this.api.executionPool);
-    }
-
-    isCommandInProgress() {
-        return (this.executionId in this.api.executionPool);
-    }
-
-    cancelCommand() {
-        this.api.cancelCommand(this.executionId);
-    }
-
-    executeCommands(title, commands) {
-        if (this.isCommandInProgress()) {
-            this.cancelCommand();
-        }
-
-        if(!this.actionPromise) {
-            title = this.label + ' - ' + title;
-            const highPriority = this.hasState('io:PriorityLockLevelState') ? true : false;
-            this.action = new Action(title, highPriority);
-            this.action.deviceURL = this.deviceURL;
-            this.action.commands = commands;
-
-            this.actionPromise = new Promise((resolve, reject) => {
-                setTimeout(() => {
-                    const action = this.action;
-                    this.actionPromise = null;
-                    this.api.executeAction(action)
-                        .then((executionId) => {
-                            this.executionId = executionId;
-                            resolve(action);
-                        })
-                        .catch(reject);
-                    this.action = null;
-                }, 100);
-            });
-        } else {
-            this.action.addCommands(commands);
-        }
-        return this.actionPromise;
     }
 }

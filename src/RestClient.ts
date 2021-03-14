@@ -1,7 +1,5 @@
 import axios from 'axios';
-import pollingtoevent from 'polling-to-event';
 import { URLSearchParams } from 'url';
-import Device from './Device';
 
 export default class RestClient {
     cookies: string;

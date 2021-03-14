@@ -1,6 +1,6 @@
 import OverkizClient from "./Client";
-import Device, { State } from "./Device";
 import dotenv from "dotenv";
+import { Device, State } from ".";
 
 dotenv.config();
 
@@ -9,7 +9,6 @@ async function main() {
         service: process.env.SERVICE,
         user: process.env.USERNAME,
         password: process.env.PASSWORD,
-        debugUrl: process.env.DEBUG,
         pollingPeriod: 10,
         refreshPeriod: 120
     });

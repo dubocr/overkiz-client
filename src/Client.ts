@@ -1,131 +1,23 @@
-import { default as events, EventEmitter } from 'events';
-import Device from './Device';
+import { EventEmitter } from 'events';
+import { Device, ExecutionState } from '.';
+import ActionGroup from './models/ActionGroup';
+import Execution, { ExecutionError } from './models/Execution';
 import RestClient from './RestClient';
 
 let Log;
 
-export class ExecutionError extends Error {
-    public readonly state;
-    constructor(state, error) {
-        super(error);
-        this.state = state;
-    }
+enum ApiEndpoint {
+	'Cozytouch' = 'https://ha110-1.overkiz.com/enduser-mobile-web/enduserAPI',
+	'TaHoma' = 'https://tahomalink.com/enduser-mobile-web/enduserAPI',
+	'Connexoon' = 'https://tahomalink.com/enduser-mobile-web/enduserAPI',
+	'Connexoon RTS' = 'https://ha201-1.overkiz.com/enduser-mobile-web/enduserAPI',
+	'Rexel' = 'https://ha112-1.overkiz.com/enduser-mobile-web/enduserAPI',
+	'Debug' = 'https://dev.duboc.pro/api/overkiz'
 }
 
-export interface ExecutionStateEvent {
-    readonly timestamp: number;
-    readonly setupOID;
-    readonly execId;
-    readonly newState: ExecutionState;
-    readonly ownerKey;
-    readonly type: number;
-    readonly subType: number;
-    readonly oldState: ExecutionState;
-    readonly timeToNextState: number;
-    readonly name;
-}
-
-export class Command {
-    type: number = 1;
-    name: string = '';
-    parameters: any[] = [];
-
-    constructor(name, parameters?: any) {
-        this.name = name;
-        if (parameters === undefined) {
-            parameters = [];
-        } else if (!Array.isArray(parameters)) {
-            parameters = [parameters];
-        }
-        this.parameters = parameters;
-    }
-}
-
-export class Action extends EventEmitter {
-    public deviceURL;
-    public commands: Command[] = [];
-
-    constructor(public readonly label: string, public highPriority: boolean) {
-        super();
-    }
-
-    addCommands(commands: Array<Command>) {
-        this.commands.forEach(command => {
-            const existing = this.commands.find((cmd) => cmd.name === command.name);
-            if(existing) {
-                existing.parameters = command.parameters;
-            } else {
-                this.commands.push(command);
-            }
-        });   
-    }
-
-    toJSON() {
-        return {
-            deviceURL: this.deviceURL,
-            commands: this.commands,
-        };
-    }
-}
-
-export interface ActionGroup {
-    oid: string;
-    label: string;
-    actions: Action[];
-    metadata: string;
-}
-
-export class Execution {
-    private timeout;
-
-    public label = '';
-    public actions: Action[] = [];
-    public metadata = null;
-
-    addAction(action: Action) {
-        this.label = this.actions.length === 0 ? action.label : 'Execute scene (' + this.actions.length + ' devices) - HomeKit';
-        this.actions.push(action);
-    }
-
-    onStateUpdate(state, event) {
-        Log(event);
-        if(event.failureType && event.failedCommands) {
-            this.actions.forEach((action) => {
-                const failure = event.failedCommands.find((c) => c.deviceURL === action.deviceURL);
-                if(failure) {
-                    action.emit('update', ExecutionState.FAILED, failure);
-                } else {
-                    action.emit('update', ExecutionState.COMPLETED);
-                }
-            });
-        } else {
-            this.actions.forEach((action) => action.emit('update', state, event));
-        }
-    }
-
-    hasPriority() {
-        return this.actions.find((action) => action.highPriority) ? true : false;
-    }
-}
-
-export enum ExecutionState {
-    INITIALIZED = 'INITIALIZED',
-    IN_PROGRESS = 'IN_PROGRESS',
-    COMPLETED = 'COMPLETED',
-    FAILED = 'FAILED'
-}
-
-enum Server {
-	'Cozytouch' = 'ha110-1.overkiz.com',
-	'TaHoma' = 'tahomalink.com',
-	'Connexoon' = 'tahomalink.com',
-	'Connexoon RTS' = 'ha201-1.overkiz.com',
-	'Rexel' = 'ha112-1.overkiz.com'
-}
-
-export default class OverkizClient extends events.EventEmitter {
+export default class OverkizClient extends EventEmitter {
     debug: boolean;
-    debugUrl: string;
+    apiEndpoint: string;
     execPollingPeriod;
     pollingPeriod;
     refreshPeriod;
@@ -134,8 +26,6 @@ export default class OverkizClient extends events.EventEmitter {
     listenerId: null|number = null;
     executionPool: Execution[] = [];
     stateChangedEventListener = null;
-    execution: Execution = new Execution();
-    executionPromise;
     
     restClient: RestClient;
 
@@ -150,7 +40,6 @@ export default class OverkizClient extends events.EventEmitter {
 
         // Default values
         this.debug = config['debug'] || false;
-        this.debugUrl = config['debugUrl'] || false;
         this.execPollingPeriod = config['execPollingPeriod'] || 2; // Poll for execution events every 2 seconds by default
         this.pollingPeriod = config['pollingPeriod'] || 60; // Don't continuously poll for events by default (in seconds)
         this.refreshPeriod = config['refreshPeriod'] || (60 * 30); // Refresh device states every 30 minutes by default (in seconds)
@@ -159,12 +48,11 @@ export default class OverkizClient extends events.EventEmitter {
         if (!config['user'] || !config['password']) {
             throw new Error('You must provide credentials (\'user\'/\'password\')');
         }
-        this.server = Server[this.service];
-        if (!this.server) {
+        this.apiEndpoint = ApiEndpoint[this.service];
+        if (!this.apiEndpoint) {
             throw new Error('Invalid service name \''+this.service+'\'');
         }
-        const baseUrl = this.debugUrl ? this.debugUrl : 'https://' + this.server + '/enduser-mobile-web/enduserAPI';
-        this.restClient = new RestClient(config['user'], config['password'], baseUrl);
+        this.restClient = new RestClient(config['user'], config['password'], this.apiEndpoint);
 
         
         this.listenerId = null;
@@ -180,7 +68,7 @@ export default class OverkizClient extends events.EventEmitter {
     async getDevices(): Promise<Array<Device>> {
         let lastDevice: Device|null = null;
         const mainDevices = new Array<Device>();
-        const devices = (await this.restClient.get('/setup/devices')).map((device) => Object.assign(new Device(this), device));
+        const devices = (await this.restClient.get('/setup/devices')).map((device) => Object.assign(new Device(), device));
         devices.forEach((device) => {
             if(this.devices[device.deviceURL]) {
                 //Object.assign(this.devices[device.deviceURL], device);
@@ -224,25 +112,8 @@ export default class OverkizClient extends events.EventEmitter {
             .then((data) => data.value);
     }
 
-    cancelCommand(execId) {
-        return this.restClient.delete('/exec/current/setup/' + execId);
-    }
-
-    /*
-    	action: The action to execute
-    */
-    public executeAction(action) {
-        this.execution.addAction(action);
-        if(!this.executionPromise) {
-            this.executionPromise = new Promise((resolve, reject) => {
-                setTimeout(() => {
-                    this.executionPromise = null;
-                    this.execute(this.execution.hasPriority() ? 'apply/highPriority' : 'apply', this.execution).then(resolve).catch(reject);
-                    this.execution = new Execution();
-                }, 100);
-            });
-        }
-        return this.executionPromise;
+    async cancelExecution(execId) {
+        return await this.restClient.delete('/exec/current/setup/' + execId);
     }
 
     /*
@@ -250,22 +121,22 @@ export default class OverkizClient extends events.EventEmitter {
     	execution: Body parameters
     	callback: Callback function executed when command sended
     */
-    execute(oid, execution) {
+    async execute(oid, execution) {
+        //Log(execution);
         if(this.executionPool.length >= 10) {
             // Avoid EXEC_QUEUE_FULL (max 10 commands simultaneous)
-            setTimeout(this.execute.bind(this), 10 * 1000, oid, execution); // Postpone in 10 sec
-            return;
+            // Postpone in 10 sec
+            await this.delay(10 * 1000);
         }
-        //Log(JSON.stringify(execution));
-        return this.restClient.post('/exec/'+oid, execution)
-            .then((data) => {
-                this.executionPool[data.execId] = execution;
-                this.setEventPollingPeriod(this.execPollingPeriod);
-                return data.execId;
-            })
-            .catch((error) => {
-                throw new ExecutionError(ExecutionState.FAILED, error);
-            });
+        try {
+            //Log(JSON.stringify(execution));
+            const data = await this.restClient.post('/exec/'+oid, execution);
+            this.executionPool[data.execId] = execution;
+            this.setEventPollingPeriod(this.execPollingPeriod);
+            return data.execId;
+        } catch(error) {
+            throw new ExecutionError(ExecutionState.FAILED, error);
+        }
     }
 
     setRefreshPollingPeriod(period: number) {
@@ -356,5 +227,9 @@ export default class OverkizClient extends events.EventEmitter {
             console.log(error);
             this.listenerId = null;
         }
+    }
+
+    private async delay(duration) {
+        return new Promise(resolve => setTimeout(resolve, duration));
     }
 }
