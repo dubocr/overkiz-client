@@ -4,7 +4,7 @@ import ActionGroup from './models/ActionGroup';
 import Execution, { ExecutionError } from './models/Execution';
 import RestClient from './RestClient';
 
-let Log;
+export let Log;
 
 enum ApiEndpoint {
 	'Cozytouch' = 'https://ha110-1.overkiz.com/enduser-mobile-web/enduserAPI',
@@ -130,9 +130,9 @@ export default class OverkizClient extends EventEmitter {
         }
         try {
             //Log(JSON.stringify(execution));
+            this.setEventPollingPeriod(this.execPollingPeriod);
             const data = await this.restClient.post('/exec/'+oid, execution);
             this.executionPool[data.execId] = execution;
-            this.setEventPollingPeriod(this.execPollingPeriod);
             return data.execId;
         } catch(error) {
             throw new ExecutionError(ExecutionState.FAILED, error);
@@ -153,6 +153,9 @@ export default class OverkizClient extends EventEmitter {
             clearInterval(this.eventPollingId);
         }
         if(period > 0) {
+            if(this.listenerId === null) {
+                await this.registerListener();
+            }
             this.eventPollingId = setInterval(this.fetchEvents.bind(this), period * 1000);
         }
     }

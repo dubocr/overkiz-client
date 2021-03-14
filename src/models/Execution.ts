@@ -1,3 +1,5 @@
+import { EventEmitter } from "events";
+import { Log } from "../Client";
 import Action from "./Action";
 
 export enum ExecutionState {
@@ -28,14 +30,17 @@ export interface ExecutionStateEvent {
     readonly name;
 }
 
-export default class Execution {
+export default class Execution extends EventEmitter {
     private timeout;
 
     public actions: Action[] = [];
     public metadata = null;
 
-    constructor(public label: string, action: Action) {
-        this.addAction(action);
+    constructor(public label: string, action?: Action) {
+        super();
+        if(action) {
+            this.addAction(action);
+        }
     }
 
     addAction(action: Action) {
@@ -44,6 +49,7 @@ export default class Execution {
 
     onStateUpdate(state, event) {
         //Log(event);
+        this.emit('update', state, event);
         if(event.failureType && event.failedCommands) {
             this.actions.forEach((action) => {
                 const failure = event.failedCommands.find((c) => c.deviceURL === action.deviceURL);
