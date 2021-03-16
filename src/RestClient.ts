@@ -1,19 +1,22 @@
 import axios from 'axios';
+import { EventEmitter } from 'events';
 import { URLSearchParams } from 'url';
+import { logger } from './Client';
 
-export default class RestClient {
+export default class RestClient extends EventEmitter {
     cookies: string;
     logged: boolean;
     authRequest: Promise<unknown>|null = null;
 
     constructor(private readonly user: string, private readonly password: string, private readonly baseUrl: string) {
+        super();
         this.cookies = '';
         this.logged = false;
         axios.defaults.baseURL = baseUrl;
         axios.defaults.withCredentials = true;
 
         axios.interceptors.request.use(request => {
-            console.log('Request', request.url);
+            //logger.log('Request', request.url);
             return request
         });
     }
@@ -34,6 +37,7 @@ export default class RestClient {
                         if(response.headers['set-cookie']) {
                             axios.defaults.headers.common['Cookie'] = response.headers['set-cookie'];
                         }
+                        this.emit('connect');
                     })
                     .finally(() => {
                         this.authRequest = null;
@@ -55,7 +59,7 @@ export default class RestClient {
                         }
                     } else {
                         let msg = 'Error ' + error.response.statusCode;
-                        console.log(error.response.data);
+                        logger.log(error.response.data);
                         const json = error.response.data;
                         if(json && json.error !== null) {
                             msg += ' ' + json.error;
@@ -63,14 +67,14 @@ export default class RestClient {
                         if(json && json.errorCode !== null) {
                             msg += ' (' + json.errorCode + ')';
                         }
-                        console.log(msg);
+                        logger.log(msg);
                         throw msg;
                     }
                 } else if (error.request) {
-                    console.error('Error: ' + error.request);
+                    logger.error('Error: ' + error.request);
                     throw error;
                 } else {
-                    console.error('Error: ' + error.message);
+                    logger.error('Error: ' + error.message);
                     throw error;
                 }
             });

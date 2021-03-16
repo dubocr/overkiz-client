@@ -4,7 +4,7 @@ import ActionGroup from './models/ActionGroup';
 import Execution, { ExecutionError } from './models/Execution';
 import RestClient from './RestClient';
 
-export let Log;
+export let logger;
 
 enum ApiEndpoint {
 	'Cozytouch' = 'https://ha110-1.overkiz.com/enduser-mobile-web/enduserAPI',
@@ -36,7 +36,7 @@ export default class OverkizClient extends EventEmitter {
 
     constructor(log, config) {
         super();
-        Log = log;
+        logger = log;
 
         // Default values
         this.debug = config['debug'] || false;
@@ -57,15 +57,17 @@ export default class OverkizClient extends EventEmitter {
         
         this.listenerId = null;
 
-        this.setRefreshPollingPeriod(this.refreshPeriod);
-        this.setEventPollingPeriod(this.pollingPeriod);
+        this.restClient.on('connect', () => {
+            this.setRefreshPollingPeriod(this.refreshPeriod);
+            this.setEventPollingPeriod(this.pollingPeriod);
+        });
     }
 
-    hasExecution() {
+    public hasExecution() {
         return Object.keys(this.executionPool).length > 0;
     }
 
-    async getDevices(): Promise<Array<Device>> {
+    public async getDevices(): Promise<Array<Device>> {
         let lastDevice: Device|null = null;
         const mainDevices = new Array<Device>();
         const devices = (await this.restClient.get('/setup/devices')).map((device) => Object.assign(new Device(), device));
@@ -85,7 +87,7 @@ export default class OverkizClient extends EventEmitter {
         return mainDevices;
     }
 
-    async getActionGroups(): Promise<Array<ActionGroup>> {
+    public async getActionGroups(): Promise<Array<ActionGroup>> {
         return this.restClient.get('/actionGroups').then((result) => result.map((data) => data as ActionGroup));
     }
 
@@ -139,7 +141,7 @@ export default class OverkizClient extends EventEmitter {
         }
     }
 
-    setRefreshPollingPeriod(period: number) {
+    private setRefreshPollingPeriod(period: number) {
         if(this.refreshPollingId != null) {
             clearInterval(this.refreshPollingId);
         }
@@ -148,50 +150,36 @@ export default class OverkizClient extends EventEmitter {
         }
     }
 
-    async setEventPollingPeriod(period: number) {
+    private setEventPollingPeriod(period: number) {
         if(this.eventPollingId != null) {
             clearInterval(this.eventPollingId);
         }
         if(period > 0) {
             if(this.listenerId === null) {
-                await this.registerListener();
+                this.registerListener();
             }
             this.eventPollingId = setInterval(this.fetchEvents.bind(this), period * 1000);
         }
     }
 
-    async refreshAll() {
-        if(this.restClient.logged) {
-            try {
-                const data = await this.refreshStates();
-                setTimeout(async () => {
-                    (await this.getDevices()).forEach((newDevice) => {
-                        const device = this.devices[newDevice.deviceURL];
-                        if(device) {
-                            newDevice.states.forEach(state => {
-                                const s = device.getState(state.name);
-                                if(s) {
-                                    s.value = state.value;
-                                }
-                            });
-                            device.emit('states', newDevice.states);
-                        }
-                    });
-                }, 10 * 1000); // Read devices states after 10s
-            } catch(error) {
-                Log('Error: ' + error);
-            }
-        } else {
-            Log('Refresh Polling - Not logged in');
+    private async refreshAll() {
+        try {
+            await this.refreshStates();
+            await this.delay(10 * 1000); // Wait for device radio refresh
+            const devices = await this.getDevices();
+            devices.forEach((fresh) => {
+                const device = this.devices[fresh.deviceURL];
+                if(device) {
+                    device.states = fresh.states;
+                    device.emit('states', fresh.states);
+                }
+            });
+        } catch(error) {
+            logger.error(error);
         }
     }
 
-    async fetchEvents() {
-        if(!this.restClient.logged) {
-            console.log('Event Polling - Not logged in');
-            return;
-        }
-
+    private async fetchEvents() {
         try {
             if(this.listenerId === null) {
                 await this.registerListener();
@@ -199,26 +187,26 @@ export default class OverkizClient extends EventEmitter {
             
             const data = await this.restClient.post('/events/' + this.listenerId + '/fetch');
             for (const event of data) {
-                //Log(event);
-                //console.log(event);
+                //logger.log(event);
                 if (event.name === 'DeviceStateChangedEvent') {
                     const device = this.devices[event.deviceURL];
-                    event.deviceStates.forEach(state => {
-                        const s = device.getState(state.name);
-                        if(s) {
-                            s.value = state.value;
+                    event.deviceStates.forEach(fresh => {
+                        const state = device.getState(fresh.name);
+                        if(state) {
+                            state.value = fresh.value;
                         }
                     });
                     device.emit('states', event.deviceStates);
                 } else if (event.name === 'ExecutionStateChangedEvent') {
-                    //Log(event);
+                    //logger.log(event);
                     const execution = this.executionPool[event.execId];
                     if (execution) {
                         execution.onStateUpdate(event.newState, event);
-                        //cb(event.newState, event.failureType === undefined ? null : event.failureType, event);
-                        if (event.timeToNextState === -1) { // No more state expected for this execution
+                        if(event.timeToNextState === -1) {
+                            // No more state expected for this execution
                             delete this.executionPool[event.execId];
-                            if(!this.hasExecution()) { // Update polling frequency when no more execution
+                            if(!this.hasExecution()) {
+                                // Update polling frequency when no more execution
                                 this.setEventPollingPeriod(this.pollingPeriod);
                             }
                         }
@@ -226,8 +214,8 @@ export default class OverkizClient extends EventEmitter {
                 }
             }
         } catch(error) {
-            console.log('Event Polling - Error with listener ' + this.listenerId);
-            console.log(error);
+            logger.error('Event Polling - Error with listener ' + this.listenerId);
+            logger.error(error);
             this.listenerId = null;
         }
     }

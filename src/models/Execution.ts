@@ -1,5 +1,4 @@
 import { EventEmitter } from "events";
-import { Log } from "../Client";
 import Action from "./Action";
 
 export enum ExecutionState {
@@ -48,7 +47,6 @@ export default class Execution extends EventEmitter {
     }
 
     onStateUpdate(state, event) {
-        //Log(event);
         this.emit('update', state, event);
         if(event.failureType && event.failedCommands) {
             this.actions.forEach((action) => {

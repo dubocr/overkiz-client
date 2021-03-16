@@ -1,7 +1,7 @@
 {
   "name": "overkiz-client",
   "displayName": "Overkiz API Client",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Overkiz API client plugin for Node",
   "author": "Romain DUBOC",
   "license": "Apache-2.0",
@@ -19,7 +19,10 @@
   "scripts": {
     "lint": "eslint src/**.ts",
     "test": "npm run build && node ./dist/test.js",
-    "build": "rimraf ./dist && tsc"
+    "clean": "rimraf ./dist",
+    "build": "rimraf ./dist && tsc",
+    "prepublishOnly": "npm run lint && npm run build",
+    "postpublish": "npm run clean"
   },
   "keywords": [
     "tahoma",

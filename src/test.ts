@@ -5,7 +5,7 @@ import { Device, State } from ".";
 dotenv.config();
 
 async function main() {
-    const client = new OverkizClient(() => console.log, {
+    const client = new OverkizClient(console, {
         service: process.env.SERVICE,
         user: process.env.USERNAME,
         password: process.env.PASSWORD,
