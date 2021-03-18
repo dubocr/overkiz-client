@@ -7,12 +7,12 @@ import RestClient from './RestClient';
 export let logger;
 
 enum ApiEndpoint {
-	'Cozytouch' = 'https://ha110-1.overkiz.com/enduser-mobile-web/enduserAPI',
-	'TaHoma' = 'https://tahomalink.com/enduser-mobile-web/enduserAPI',
-	'Connexoon' = 'https://tahomalink.com/enduser-mobile-web/enduserAPI',
-	'Connexoon RTS' = 'https://ha201-1.overkiz.com/enduser-mobile-web/enduserAPI',
-	'Rexel' = 'https://ha112-1.overkiz.com/enduser-mobile-web/enduserAPI',
-	'Debug' = 'https://dev.duboc.pro/api/overkiz'
+	'cozytouch' = 'https://ha110-1.overkiz.com/enduser-mobile-web/enduserAPI',
+	'tahoma' = 'https://tahomalink.com/enduser-mobile-web/enduserAPI',
+	'connexoon' = 'https://tahomalink.com/enduser-mobile-web/enduserAPI',
+	'connexoon_rts' = 'https://ha201-1.overkiz.com/enduser-mobile-web/enduserAPI',
+	'rexel' = 'https://ha112-1.overkiz.com/enduser-mobile-web/enduserAPI',
+	'debug' = 'https://dev.duboc.pro/api/overkiz'
 }
 
 export default class OverkizClient extends EventEmitter {
@@ -42,7 +42,7 @@ export default class OverkizClient extends EventEmitter {
         this.debug = config['debug'] || false;
         this.execPollingPeriod = config['execPollingPeriod'] || 2; // Poll for execution events every 2 seconds by default
         this.pollingPeriod = config['pollingPeriod'] || 60; // Don't continuously poll for events by default (in seconds)
-        this.refreshPeriod = config['refreshPeriod'] || (60 * 30); // Refresh device states every 30 minutes by default (in seconds)
+        this.refreshPeriod = (config['refreshPeriod'] || 30) * 60; // Refresh device states every 30 minutes by default (in minutes)
         this.service = config['service'] || 'TaHoma';
 
         if (!config['user'] || !config['password']) {
