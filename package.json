@@ -22,7 +22,8 @@
     "clean": "rimraf ./dist",
     "build": "rimraf ./dist && tsc",
     "prepublishOnly": "npm run lint && npm run build",
-    "postpublish": "npm run clean"
+    "postpublish": "npm run clean",
+    "release": "npm run lint && npm version patch --m 'Release %s' && npm publish"
   },
   "keywords": [
     "tahoma",
@@ -31,9 +32,7 @@
   "homepage": "https://github.com/dubocr/overkiz-client#readme",
   "dependencies": {
     "axios": "^0.21.1",
-    "event": "^1.0.0",
-    "path": "^0.12.7",
-    "polling-to-event": "^2.1.0",
+    "events": "^3.3.0",
     "uuid": "^8.3.2"
   },
   "devDependencies": {

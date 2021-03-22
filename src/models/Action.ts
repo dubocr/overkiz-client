@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import Command from "./Command";
+import Command from './Command';
 
 export default class Action extends EventEmitter {
     public commands: Command[] = [];

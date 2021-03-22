@@ -1,6 +1,6 @@
 export default class Command {
-    type: number = 1;
-    name: string = '';
+    type = 1;
+    name = '';
     parameters: any[] = [];
 
     constructor(name, parameters?: any) {

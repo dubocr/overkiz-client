@@ -1,6 +1,6 @@
-import OverkizClient from "./Client";
-import dotenv from "dotenv";
-import { Device, State } from ".";
+import OverkizClient from './Client';
+import dotenv from 'dotenv';
+import { Device, State } from '.';
 
 dotenv.config();
 
@@ -10,7 +10,7 @@ async function main() {
         user: process.env.USERNAME,
         password: process.env.PASSWORD,
         pollingPeriod: 10,
-        refreshPeriod: 120
+        refreshPeriod: 120,
     });
 
     const devices = await client.getDevices();

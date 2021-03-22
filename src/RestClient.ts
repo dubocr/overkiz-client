@@ -17,7 +17,7 @@ export default class RestClient extends EventEmitter {
 
         axios.interceptors.request.use(request => {
             //logger.log('Request', request.url);
-            return request
+            return request;
         });
     }
 

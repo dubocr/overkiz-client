@@ -17,12 +17,12 @@ export interface Definition {
 }
 
 export default class Device extends EventEmitter {
-    oid: string = '';
-    deviceURL: string = '';
-    label: string = '';
-    widget: string = '';
-    uiClass: string = '';
-    controllableName: string = '';
+    oid = '';
+    deviceURL = '';
+    label = '';
+    widget = '';
+    uiClass = '';
+    controllableName = '';
     states: Array<State> = [];
 
     public definition: Definition = { commands: [] };

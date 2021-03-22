@@ -80,7 +80,7 @@ export default class OverkizClient extends EventEmitter {
             if(device.isMainDevice()) {
                 lastDevice = device;
                 mainDevices.push(device);
-            } else if(lastDevice != null) {
+            } else if(lastDevice !== null) {
                 lastDevice.addSensor(device);
             }
         });
@@ -142,7 +142,7 @@ export default class OverkizClient extends EventEmitter {
     }
 
     private setRefreshPollingPeriod(period: number) {
-        if(this.refreshPollingId != null) {
+        if(this.refreshPollingId !== null) {
             clearInterval(this.refreshPollingId);
         }
         if(period > 0) {
@@ -151,7 +151,7 @@ export default class OverkizClient extends EventEmitter {
     }
 
     private setEventPollingPeriod(period: number) {
-        if(this.eventPollingId != null) {
+        if(this.eventPollingId !== null) {
             clearInterval(this.eventPollingId);
         }
         if(period > 0) {
