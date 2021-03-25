@@ -21,7 +21,7 @@
     "test": "npm run build && node ./dist/test.js",
     "clean": "rimraf ./dist",
     "build": "rimraf ./dist && tsc",
-    "prepublishOnly": "npm run lint && npm version patch --m 'Release %s' && npm publish",
+    "prepublishOnly": "npm run lint && npm run build && npm version patch --m 'Release %s'",
     "postpublish": "npm run clean"
   },
   "keywords": [
