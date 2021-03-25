@@ -58,7 +58,7 @@ export default class Device extends EventEmitter {
 
     get model() {
         const model = this.get('core:ModelState');
-        return model !== null ? model : this.uiClass + ' > ' + this.widget;
+        return model !== null ? model : this.uiClass;
     }
 
     get serialNumber() {
