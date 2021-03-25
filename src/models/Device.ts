@@ -58,7 +58,7 @@ export default class Device extends EventEmitter {
 
     get model() {
         const model = this.get('core:ModelState');
-        return model !== null ? model : this.uiClass;
+        return model !== null ? model : this.uiClass + ' > ' + this.widget;
     }
 
     get serialNumber() {
@@ -81,17 +81,22 @@ export default class Device extends EventEmitter {
         return this.sensors.find((sensor) => sensor.widget === widget) !== undefined;
     }
 
-    isMainDevice() {
+    isMainDevice(parent: Device | null) {
         if(this.componentId === 1) {
             return true;
         } else {
             switch(this.widget) {
-                case 'AtlanticPassAPCDHW':
-                case 'AtlanticPassAPCHeatingZone':
-                case 'AtlanticPassAPCHeatingAndCoolingZone':
-                    return true;
                 case 'TemperatureSensor': // Outdoor sensor for PassAPC
-                    return this.componentId === 3;
+                    if(parent !== null) {
+                        switch(parent.widget) {
+                            case 'AtlanticPassAPCBoiler':
+                            case 'AtlanticPassAPCDHW':
+                                return true; // Exterior temperature sensor for boiler
+                        }
+                    }
+                    return false;
+                default:
+                    return !this.widget.endsWith('Sensor');
             }
         }
     }

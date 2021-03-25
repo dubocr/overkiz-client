@@ -46,11 +46,11 @@ export default class OverkizClient extends EventEmitter {
         this.service = config['service'] || 'tahoma';
 
         if (!config['user'] || !config['password']) {
-            throw new Error('You must provide credentials (\'user\'/\'password\')');
+            throw new Error('You must provide credentials (user / password)');
         }
         this.apiEndpoint = ApiEndpoint[this.service.toLowerCase()];
         if (!this.apiEndpoint) {
-            throw new Error('Invalid service name \''+this.service+'\'');
+            throw new Error('Invalid service name: ' + this.service);
         }
         this.restClient = new RestClient(config['user'], config['password'], this.apiEndpoint);
 
@@ -77,7 +77,7 @@ export default class OverkizClient extends EventEmitter {
             } else {
                 this.devices[device.deviceURL] = device;
             }
-            if(device.isMainDevice()) {
+            if(device.isMainDevice(lastDevice)) {
                 lastDevice = device;
                 mainDevices.push(device);
             } else if(lastDevice !== null) {
@@ -164,6 +164,7 @@ export default class OverkizClient extends EventEmitter {
 
     private async refreshAll() {
         try {
+            logger.debug('Refresh all devices');
             await this.refreshStates();
             await this.delay(10 * 1000); // Wait for device radio refresh
             const devices = await this.getDevices();
