@@ -7,15 +7,18 @@ export default class RestClient extends EventEmitter {
     cookies: string;
     logged: boolean;
     authRequest: Promise<unknown>|null = null;
+    http;
 
     constructor(private readonly user: string, private readonly password: string, private readonly baseUrl: string) {
         super();
         this.cookies = '';
         this.logged = false;
-        axios.defaults.baseURL = baseUrl;
-        axios.defaults.withCredentials = true;
+        this.http = axios.create({
+            baseURL: baseUrl,
+            withCredentials: true,
+        });
 
-        axios.interceptors.request.use(request => {
+        this.http.interceptors.request.use(request => {
             //logger.log('Request', request.url);
             return request;
         });
@@ -24,18 +27,18 @@ export default class RestClient extends EventEmitter {
     private request(options) {
         let request;
         if(this.logged) {
-            request = axios(options);
+            request = this.http(options);
         } else {
             if(this.authRequest === null) {
                 const params = new URLSearchParams();
                 params.append('userId', this.user);
                 params.append('userPassword', this.password);
-                this.authRequest = axios.post('/login', params)
+                this.authRequest = this.http.post('/login', params)
                     .then((response) => {
                         this.authRequest = null;
                         this.logged = true;
                         if(response.headers['set-cookie']) {
-                            axios.defaults.headers.common['Cookie'] = response.headers['set-cookie'];
+                            this.http.defaults.headers.common['Cookie'] = response.headers['set-cookie'];
                         }
                         this.emit('connect');
                     })
@@ -43,7 +46,7 @@ export default class RestClient extends EventEmitter {
                         this.authRequest = null;
                     });
             }
-            request = this.authRequest.then(() => axios(options));
+            request = this.authRequest?.then(() => this.http(options));
         }
 
         return request
