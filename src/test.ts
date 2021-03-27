@@ -17,8 +17,8 @@ async function main() {
     const devices = await client.getDevices();
     //console.log(devices);
     devices.forEach((device: Device) => {
-        console.log(device.label);
-        device.sensors.forEach((sensor: Device) => console.log('\t - ' + sensor.label));
+        console.log(device.label + ' (Parent: ' + device.parent?.label + ')');
+        device.sensors.forEach((sensor: Device) => console.log('\t - ' + sensor.label + ' (Parent: ' + sensor.parent?.label + ')'));
         device.on('states', (states) => {
             console.log(device.label + ' states updated');
             states.forEach((state: State) => console.log('\t - ' + state.name + '=' + state.value));

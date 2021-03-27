@@ -27,6 +27,7 @@ export default class Device extends EventEmitter {
 
     public definition: Definition = { commands: [] };
 
+    public parent: Device | undefined;
     public sensors: Device[] = [];
 
     get uuid() {
@@ -81,23 +82,23 @@ export default class Device extends EventEmitter {
         return this.sensors.find((sensor) => sensor.widget === widget) !== undefined;
     }
 
-    isMainDevice(parent: Device | null) {
-        if(this.componentId === 1) {
-            return true;
-        } else {
-            switch(this.widget) {
-                case 'TemperatureSensor': // Outdoor sensor for PassAPC
-                    if(parent !== null) {
-                        switch(parent.widget) {
-                            case 'AtlanticPassAPCBoiler':
-                            case 'AtlanticPassAPCDHW':
-                                return true; // Exterior temperature sensor for boiler
-                        }
+    isMainDevice() {
+        return this.componentId === 1;
+    }
+
+    isSubDevice(parent: Device | null) {
+        switch(this.widget) {
+            case 'TemperatureSensor': // Outdoor sensor for PassAPC
+                if(parent !== null) {
+                    switch(parent.widget) {
+                        case 'AtlanticPassAPCBoiler':
+                        case 'AtlanticPassAPCDHW':
+                            return true; // Exterior temperature sensor for boiler
                     }
-                    return false;
-                default:
-                    return !this.widget.endsWith('Sensor');
-            }
+                }
+                return false;
+            default:
+                return !this.widget.endsWith('Sensor');
         }
     }
 

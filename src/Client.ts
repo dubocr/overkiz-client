@@ -68,6 +68,7 @@ export default class OverkizClient extends EventEmitter {
     }
 
     public async getDevices(): Promise<Array<Device>> {
+        let lastMainDevice: Device|null = null;
         let lastDevice: Device|null = null;
         const mainDevices = new Array<Device>();
         const devices = (await this.restClient.get('/setup/devices')).map((device) => Object.assign(new Device(), device));
@@ -77,10 +78,16 @@ export default class OverkizClient extends EventEmitter {
             } else {
                 this.devices[device.deviceURL] = device;
             }
-            if(device.isMainDevice(lastDevice)) {
+            if(device.isMainDevice()) {
+                lastMainDevice = device;
+                lastDevice = device;
+                mainDevices.push(device);
+            } else if(device.isSubDevice(lastDevice)) {
+                device.parent = lastMainDevice;
                 lastDevice = device;
                 mainDevices.push(device);
             } else if(lastDevice !== null) {
+                device.parent = lastDevice;
                 lastDevice.addSensor(device);
             }
         });
