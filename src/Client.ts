@@ -136,6 +136,7 @@ export default class OverkizClient extends EventEmitter {
             // Avoid EXEC_QUEUE_FULL (max 10 commands simultaneous)
             // Postpone in 10 sec
             await this.delay(10 * 1000);
+            return await this.execute(oid, execution);
         }
         try {
             //Log(JSON.stringify(execution));

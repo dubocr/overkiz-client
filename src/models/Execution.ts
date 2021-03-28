@@ -1,8 +1,10 @@
-import { EventEmitter } from "events";
-import Action from "./Action";
+import { EventEmitter } from 'events';
+import Action from './Action';
 
 export enum ExecutionState {
     INITIALIZED = 'INITIALIZED',
+    NOT_TRANSMITTED = 'NOT_TRANSMITTED',
+    TRANSMITTED = 'TRANSMITTED',
     IN_PROGRESS = 'IN_PROGRESS',
     COMPLETED = 'COMPLETED',
     FAILED = 'FAILED'
