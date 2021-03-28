@@ -18,6 +18,7 @@ async function main() {
     //console.log(devices);
     devices.forEach((device: Device) => {
         console.log(device.label + ' (Parent: ' + device.parent?.label + ')');
+        console.debug('\t' + device.address);
         device.sensors.forEach((sensor: Device) => console.log('\t - ' + sensor.label + ' (Parent: ' + sensor.parent?.label + ')'));
         device.on('states', (states) => {
             console.log(device.label + ' states updated');

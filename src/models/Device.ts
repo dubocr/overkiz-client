@@ -66,6 +66,15 @@ export default class Device extends EventEmitter {
         return this.uuid;
     }
 
+    get address() {
+        const pos = this.deviceURL.lastIndexOf('/');
+        if(pos === -1) {
+            return this.deviceURL;
+        } else {
+            return this.deviceURL.substring(pos+1);
+        }
+    }
+
     get protocol(): string {
         return this.controllableName.split(':').shift() || '';
     }
