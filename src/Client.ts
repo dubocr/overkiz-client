@@ -149,6 +149,10 @@ export default class OverkizClient extends EventEmitter {
         }
     }
 
+    async setDeviceName(deviceURL, label) {
+        await this.restClient.put(`/setup/devices/${encodeURIComponent(deviceURL)}/${label}`);
+    }
+
     private setRefreshPollingPeriod(period: number) {
         if(this.refreshPollingId !== null) {
             clearInterval(this.refreshPollingId);
