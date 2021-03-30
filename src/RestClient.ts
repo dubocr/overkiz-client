@@ -61,13 +61,13 @@ export default class RestClient extends EventEmitter {
                             throw error.response.data.error;
                         }
                     } else {
-                        let msg = 'Error ' + error.response.statusCode;
-                        logger.log(error.response.data);
+                        logger.debug(error.response.data);
+                        let msg = 'Error ' + error.response.status;
                         const json = error.response.data;
-                        if(json && json.error !== null) {
+                        if(json && json.error) {
                             msg += ' ' + json.error;
                         }
-                        if(json && json.errorCode !== null) {
+                        if(json && json.errorCode) {
                             msg += ' (' + json.errorCode + ')';
                         }
                         logger.log(msg);
