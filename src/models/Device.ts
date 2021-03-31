@@ -132,4 +132,14 @@ export default class Device extends EventEmitter {
         }
         return null;
     }
+
+    getInt(stateName) {
+        const val = this.get(stateName);
+        val ? Number.parseInt(val) : 0;
+    }
+
+    getFloat(stateName) {
+        const val = this.get(stateName);
+        val ? Number.parseFloat(val) : 0;
+    }
 }
