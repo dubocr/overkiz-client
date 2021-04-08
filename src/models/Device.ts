@@ -4,7 +4,7 @@ import { v5 as UUIDv5, validate as validateUUID } from 'uuid';
 export interface State {
     name: string;
     type: number;
-    value: unknown;
+    value: never;
 }
 
 export interface CommandDefinition {
@@ -137,6 +137,6 @@ export default class Device extends EventEmitter {
 
     getNumber(stateName): number {
         const val = this.get(stateName);
-        return val ? Number.parseFloat(val as string) : 0;
+        return val ? Number.parseFloat(val) : 0;
     }
 }
