@@ -15,11 +15,10 @@ async function main() {
     });
 
     const devices = await client.getDevices();
-    //console.log(devices);
+    console.log(`${devices.length} devices`);
     devices.forEach((device: Device) => {
-        console.log(device.label + ' (Parent: ' + device.parent?.label + ')');
-        console.debug('\t' + device.address);
-        device.sensors.forEach((sensor: Device) => console.log('\t - ' + sensor.label + ' (Parent: ' + sensor.parent?.label + ')'));
+        console.log(`${device.parent ? ' ' : ''}\x1b[34m${device.label}\x1b[0m (${device.widget})`);
+        device.sensors.forEach((sensor: Device) => console.log(`\t - \x1b[34m${sensor.label}\x1b[0m (${sensor.widget})`));
         device.on('states', (states) => {
             console.log(device.label + ' states updated');
             states.forEach((state: State) => console.log('\t - ' + state.name + '=' + state.value));

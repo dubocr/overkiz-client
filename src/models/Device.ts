@@ -91,23 +91,19 @@ export default class Device extends EventEmitter {
         return this.componentId === 1;
     }
 
-    isSubDevice(parent: Device | null) {
+    isSensorOf(device: Device) {
         switch(this.widget) {
-            case 'TemperatureSensor': // Outdoor sensor for PassAPC
-                if(parent !== null) {
-                    switch(parent.widget) {
-                        case 'AtlanticPassAPCBoiler':
-                        case 'AtlanticPassAPCDHW':
-                            return true; // Exterior temperature sensor for boiler
-                    }
-                }
-                return false;
+            case 'TemperatureSensor':
+                // T° sensor for HeatingSystem component only
+                return device.uiClass === 'HeatingSystem';
             default:
-                return !this.widget.endsWith('Sensor');
+                // TODO: Temporary patch to expose sensor as standalone device in Homebridge
+                return false;//this.widget.endsWith('Sensor');
         }
     }
 
     addSensor(device: Device) {
+        device.parent = this;
         this.sensors.push(device);
     }
 
