@@ -13,6 +13,7 @@ export interface CommandDefinition {
 }
 
 export interface Definition {
+    type: string;
     commands: CommandDefinition[];
 }
 
@@ -25,7 +26,7 @@ export default class Device extends EventEmitter {
     controllableName = '';
     states: Array<State> = [];
 
-    public definition: Definition = { commands: [] };
+    public definition: Definition = { type: '', commands: [] };
 
     public parent: Device | undefined;
     public sensors: Device[] = [];
@@ -75,6 +76,10 @@ export default class Device extends EventEmitter {
         return this.controllableName.split(':').shift() || '';
     }
 
+    get uniqueName(): string {
+        return this.controllableName.split(':').pop() || '';
+    }
+
     hasCommand(name: string): boolean {
         return this.definition.commands.find((command: CommandDefinition) => command.commandName === name) !== undefined;
     }
@@ -92,13 +97,14 @@ export default class Device extends EventEmitter {
     }
 
     isSensorOf(device: Device) {
-        switch(this.widget) {
-            case 'TemperatureSensor':
-                // T° sensor for HeatingSystem component only
+        switch(this.controllableName) {
+            case 'io:AtlanticPassAPCOutsideTemperatureSensor':
+                return device.isMainDevice();
+            case 'io:AtlanticPassAPCZoneTemperatureSensor':
                 return device.uiClass === 'HeatingSystem';
             default:
                 // TODO: Temporary patch to expose sensor as standalone device in Homebridge
-                return false;//this.widget.endsWith('Sensor');
+                return this.widget === 'TemperatureSensor' && device.uiClass === 'HeatingSystem';//this.definition.type === 'SENSOR';
         }
     }
 
