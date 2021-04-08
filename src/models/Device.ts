@@ -69,8 +69,9 @@ export default class Device extends EventEmitter {
     }
 
     get address() {
-        const regex = /(([0-9]{4})[-]){2}([0-9]{4})[/]/;
-        return this.deviceURL.replace(regex, '');
+        //const regex = /(([0-9]{4})[-]){2}([0-9]{4})[/]/;
+        const regex = /[//](.)*[/]/;
+        return this.deviceURL.replace(regex, '//');
     }
 
     get protocol(): string {
