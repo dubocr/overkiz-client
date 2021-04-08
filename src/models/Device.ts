@@ -4,7 +4,8 @@ import { v5 as UUIDv5, validate as validateUUID } from 'uuid';
 export interface State {
     name: string;
     type: number;
-    value: never;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    value: any;
 }
 
 export interface CommandDefinition {
