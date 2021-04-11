@@ -126,7 +126,8 @@ export default class Device extends EventEmitter {
         return null;
     }
 
-    get(stateName) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    get(stateName): any | null {
         if(this.states !== null) {
             for (const state of this.states) {
                 if (state.name === stateName) {

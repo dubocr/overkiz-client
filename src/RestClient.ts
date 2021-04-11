@@ -61,7 +61,7 @@ export default class RestClient extends EventEmitter {
                             throw error.response.data.error;
                         }
                     } else {
-                        logger.debug(error.response.data);
+                        //logger.debug(error.response.data);
                         let msg = 'Error ' + error.response.status;
                         const json = error.response.data;
                         if(json && json.error) {
@@ -70,7 +70,7 @@ export default class RestClient extends EventEmitter {
                         if(json && json.errorCode) {
                             msg += ' (' + json.errorCode + ')';
                         }
-                        logger.log(msg);
+                        logger.debug(msg);
                         throw msg;
                     }
                 } else if (error.request) {
