@@ -35,7 +35,7 @@ export default class OverkizClient extends EventEmitter {
 
     constructor(public readonly log, public readonly config) {
         super();
-        logger = log;
+        logger = Object.assign({}, log);
         logger.debug = (...args) => {
             config['debug'] ? log.info(...args) : log.debug(...args);
         };
