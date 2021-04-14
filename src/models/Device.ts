@@ -82,6 +82,10 @@ export default class Device extends EventEmitter {
         return this.controllableName.split(':').pop() || '';
     }
 
+    get commands(): Array<string> {
+        return this.definition.commands.map((command: CommandDefinition) => command.commandName);
+    }
+
     hasCommand(name: string): boolean {
         return this.definition.commands.find((command: CommandDefinition) => command.commandName === name) !== undefined;
     }
