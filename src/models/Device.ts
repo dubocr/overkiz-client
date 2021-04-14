@@ -101,7 +101,7 @@ export default class Device extends EventEmitter {
     isSensorOf(device: Device) {
         switch(this.controllableName) {
             case 'io:AtlanticPassAPCOutsideTemperatureSensor':
-                return device.isMainDevice();
+                return false;//device.isMainDevice();
             case 'io:AtlanticPassAPCZoneTemperatureSensor':
                 return device.uiClass === 'HeatingSystem';
             default:
