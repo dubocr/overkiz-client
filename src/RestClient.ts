@@ -56,6 +56,7 @@ export default class RestClient extends EventEmitter {
                     if (error.response.status === 401) { // Reauthenticated
                         if(this.logged) {
                             this.logged = false;
+                            this.emit('disconnect');
                             return this.request(options);
                         } else {
                             throw error.response.data.error;

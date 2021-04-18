@@ -62,6 +62,9 @@ export default class OverkizClient extends EventEmitter {
             this.setRefreshPollingPeriod(this.refreshPeriod);
             this.setEventPollingPeriod(this.pollingPeriod);
         });
+        this.restClient.on('disconnect', () => {
+            this.listenerId = null;
+        });
     }
 
     public hasExecution() {
@@ -171,9 +174,6 @@ export default class OverkizClient extends EventEmitter {
             clearInterval(this.eventPollingId);
         }
         if(period > 0) {
-            if(this.listenerId === null) {
-                this.registerListener();
-            }
             this.eventPollingId = setInterval(this.fetchEvents.bind(this), period * 1000);
         }
     }
