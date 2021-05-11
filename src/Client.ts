@@ -7,12 +7,12 @@ import RestClient from './RestClient';
 export let logger;
 
 enum ApiEndpoint {
-	'cozytouch' = 'https://ha110-1.overkiz.com/enduser-mobile-web/enduserAPI',
-	'tahoma' = 'https://tahomalink.com/enduser-mobile-web/enduserAPI',
-	'connexoon' = 'https://tahomalink.com/enduser-mobile-web/enduserAPI',
-	'connexoon_rts' = 'https://ha201-1.overkiz.com/enduser-mobile-web/enduserAPI',
-	'rexel' = 'https://ha112-1.overkiz.com/enduser-mobile-web/enduserAPI',
-	'debug' = 'https://dev.duboc.pro/api/overkiz'
+    'cozytouch' = 'https://ha110-1.overkiz.com/enduser-mobile-web/enduserAPI',
+    'tahoma' = 'https://tahomalink.com/enduser-mobile-web/enduserAPI',
+    'connexoon' = 'https://tahomalink.com/enduser-mobile-web/enduserAPI',
+    'connexoon_rts' = 'https://ha201-1.overkiz.com/enduser-mobile-web/enduserAPI',
+    'rexel' = 'https://ha112-1.overkiz.com/enduser-mobile-web/enduserAPI',
+    'debug' = 'https://dev.duboc.pro/api/overkiz'
 }
 
 export default class OverkizClient extends EventEmitter {
@@ -22,10 +22,10 @@ export default class OverkizClient extends EventEmitter {
     refreshPeriod;
     service;
     server;
-    listenerId: null|number = null;
+    listenerId: null | number = null;
     executionPool: Execution[] = [];
     stateChangedEventListener = null;
-    
+
     restClient: RestClient;
 
     devices: Array<Device> = new Array<Device>();
@@ -55,7 +55,7 @@ export default class OverkizClient extends EventEmitter {
         }
         this.restClient = new RestClient(config['user'], config['password'], this.apiEndpoint);
 
-        
+
         this.listenerId = null;
 
         this.restClient.on('connect', () => {
@@ -72,24 +72,24 @@ export default class OverkizClient extends EventEmitter {
     }
 
     public async getDevices(): Promise<Array<Device>> {
-        let lastMainDevice: Device|null = null;
-        let lastDevice: Device|null = null;
+        let lastMainDevice: Device | null = null;
+        let lastDevice: Device | null = null;
         const physicalDevices = new Array<Device>();
         const devices = (await this.restClient.get('/setup/devices')).map((device) => Object.assign(new Device(), device));
         devices.forEach((device) => {
-            if(this.devices[device.deviceURL]) {
+            if (this.devices[device.deviceURL]) {
                 //Object.assign(this.devices[device.deviceURL], device);
             } else {
                 this.devices[device.deviceURL] = device;
             }
-            if(device.isMainDevice()) {
+            if (device.isMainDevice()) {
                 lastMainDevice = device;
                 lastDevice = device;
                 physicalDevices.push(device);
             } else {
-                if(lastDevice !== null && device.isSensorOf(lastDevice)) {
+                if (lastDevice !== null && device.isSensorOf(lastDevice)) {
                     lastDevice.addSensor(device);
-                } else if(lastMainDevice !== null && device.isSensorOf(lastMainDevice)) {
+                } else if (lastMainDevice !== null && device.isSensorOf(lastMainDevice)) {
                     lastMainDevice.addSensor(device);
                 } else {
                     lastDevice = device;
@@ -133,13 +133,13 @@ export default class OverkizClient extends EventEmitter {
     }
 
     /*
-    	oid: The command OID or 'apply' if immediate execution
-    	execution: Body parameters
-    	callback: Callback function executed when command sended
+        oid: The command OID or 'apply' if immediate execution
+        execution: Body parameters
+        callback: Callback function executed when command sended
     */
     async execute(oid, execution) {
         //Log(execution);
-        if(this.executionPool.length >= 10) {
+        if (this.executionPool.length >= 10) {
             // Avoid EXEC_QUEUE_FULL (max 10 commands simultaneous)
             // Postpone in 10 sec
             await this.delay(10 * 1000);
@@ -148,10 +148,10 @@ export default class OverkizClient extends EventEmitter {
         try {
             //Log(JSON.stringify(execution));
             this.setEventPollingPeriod(this.execPollingPeriod);
-            const data = await this.restClient.post('/exec/'+oid, execution);
+            const data = await this.restClient.post('/exec/' + oid, execution);
             this.executionPool[data.execId] = execution;
             return data.execId;
-        } catch(error) {
+        } catch (error) {
             throw new ExecutionError(ExecutionState.FAILED, error);
         }
     }
@@ -161,19 +161,19 @@ export default class OverkizClient extends EventEmitter {
     }
 
     private setRefreshPollingPeriod(period: number) {
-        if(this.refreshPollingId !== null) {
+        if (this.refreshPollingId !== null) {
             clearInterval(this.refreshPollingId);
         }
-        if(period > 0) {
+        if (period > 0) {
             this.refreshPollingId = setInterval(this.refreshAll.bind(this), period * 1000);
         }
     }
 
     private setEventPollingPeriod(period: number) {
-        if(this.eventPollingId !== null) {
+        if (this.eventPollingId !== null) {
             clearInterval(this.eventPollingId);
         }
-        if(period > 0) {
+        if (period > 0) {
             this.eventPollingId = setInterval(this.fetchEvents.bind(this), period * 1000);
         }
     }
@@ -186,22 +186,22 @@ export default class OverkizClient extends EventEmitter {
             const devices = await this.getDevices();
             devices.forEach((fresh) => {
                 const device = this.devices[fresh.deviceURL];
-                if(device) {
+                if (device) {
                     device.states = fresh.states;
                     device.emit('states', fresh.states);
                 }
             });
-        } catch(error) {
+        } catch (error) {
             logger.error(error);
         }
     }
 
     private async fetchEvents() {
         try {
-            if(this.listenerId === null) {
+            if (this.listenerId === null) {
                 await this.registerListener();
             }
-            
+
             const data = await this.restClient.post('/events/' + this.listenerId + '/fetch');
             for (const event of data) {
                 //logger.log(event);
@@ -209,7 +209,7 @@ export default class OverkizClient extends EventEmitter {
                     const device = this.devices[event.deviceURL];
                     event.deviceStates.forEach(fresh => {
                         const state = device.getState(fresh.name);
-                        if(state) {
+                        if (state) {
                             state.value = fresh.value;
                         }
                     });
@@ -219,10 +219,10 @@ export default class OverkizClient extends EventEmitter {
                     const execution = this.executionPool[event.execId];
                     if (execution) {
                         execution.onStateUpdate(event.newState, event);
-                        if(event.timeToNextState === -1) {
+                        if (event.timeToNextState === -1) {
                             // No more state expected for this execution
                             delete this.executionPool[event.execId];
-                            if(!this.hasExecution()) {
+                            if (!this.hasExecution()) {
                                 // Update polling frequency when no more execution
                                 this.setEventPollingPeriod(this.pollingPeriod);
                             }
@@ -230,9 +230,9 @@ export default class OverkizClient extends EventEmitter {
                     }
                 }
             }
-        } catch(error) {
+        } catch (error) {
             logger.error('Event Polling - Error with listener ' + this.listenerId);
-            logger.error(error);
+            logger.error(error.message);
             this.listenerId = null;
         }
     }

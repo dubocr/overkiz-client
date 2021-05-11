@@ -6,7 +6,7 @@ import { logger } from './Client';
 export default class RestClient extends EventEmitter {
     cookies: string;
     logged: boolean;
-    authRequest: Promise<unknown>|null = null;
+    authRequest: Promise<unknown> | null = null;
     http;
 
     constructor(private readonly user: string, private readonly password: string, private readonly baseUrl: string) {
@@ -26,10 +26,10 @@ export default class RestClient extends EventEmitter {
 
     private request(options) {
         let request;
-        if(this.logged) {
+        if (this.logged) {
             request = this.http(options);
         } else {
-            if(this.authRequest === null) {
+            if (this.authRequest === null) {
                 const params = new URLSearchParams();
                 params.append('userId', this.user);
                 params.append('userPassword', this.password);
@@ -37,7 +37,7 @@ export default class RestClient extends EventEmitter {
                     .then((response) => {
                         this.authRequest = null;
                         this.logged = true;
-                        if(response.headers['set-cookie']) {
+                        if (response.headers['set-cookie']) {
                             this.http.defaults.headers.common['Cookie'] = response.headers['set-cookie'];
                         }
                         this.emit('connect');
@@ -52,9 +52,9 @@ export default class RestClient extends EventEmitter {
         return request
             .then((response) => response.data)
             .catch((error) => {
-                if(error.response) {
+                if (error.response) {
                     if (error.response.status === 401) { // Reauthenticated
-                        if(this.logged) {
+                        if (this.logged) {
                             this.logged = false;
                             this.emit('disconnect');
                             return this.request(options);
@@ -65,20 +65,20 @@ export default class RestClient extends EventEmitter {
                         //logger.debug(error.response.data);
                         let msg = 'Error ' + error.response.status;
                         const json = error.response.data;
-                        if(json && json.error) {
+                        if (json && json.error) {
                             msg += ' ' + json.error;
                         }
-                        if(json && json.errorCode) {
+                        if (json && json.errorCode) {
                             msg += ' (' + json.errorCode + ')';
                         }
                         logger.debug(msg);
                         throw msg;
                     }
                 } else if (error.request) {
-                    logger.error('Error: ' + error.request);
+                    logger.error('Error: ', error.request);
                     throw error;
                 } else {
-                    logger.error('Error: ' + error.message);
+                    logger.error('Error: ', error.message);
                     throw error;
                 }
             });
