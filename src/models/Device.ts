@@ -38,16 +38,16 @@ export default class Device extends EventEmitter {
 
     get componentId() {
         const pos = this.deviceURL.indexOf('#');
-        if(pos === -1) {
+        if (pos === -1) {
             return 1;
         } else {
-            return parseInt(this.deviceURL.substring(pos+1));
+            return parseInt(this.deviceURL.substring(pos + 1));
         }
     }
 
     get baseUrl() {
         const pos = this.deviceURL.indexOf('#');
-        if(pos === -1) {
+        if (pos === -1) {
             return this.deviceURL;
         } else {
             return this.deviceURL.substring(0, pos);
@@ -71,7 +71,7 @@ export default class Device extends EventEmitter {
     get address() {
         //const regex = /(([0-9]{4})[-]){2}([0-9]{4})[/]/;
         const regex = /[//](.)*[/]/;
-        return this.deviceURL.replace(regex, '//');
+        return this.deviceURL.replace(regex, '');
     }
 
     get protocol(): string {
@@ -103,7 +103,7 @@ export default class Device extends EventEmitter {
     }
 
     isSensorOf(device: Device) {
-        switch(this.controllableName) {
+        switch (this.controllableName) {
             case 'io:AtlanticPassAPCOutsideTemperatureSensor':
                 return false;//device.isMainDevice();
             case 'io:AtlanticPassAPCZoneTemperatureSensor':
@@ -120,7 +120,7 @@ export default class Device extends EventEmitter {
     }
 
     getState(stateName) {
-        if(this.states !== null) {
+        if (this.states !== null) {
             for (const state of this.states) {
                 if (state.name === stateName) {
                     return state;
@@ -132,7 +132,7 @@ export default class Device extends EventEmitter {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     get(stateName): any | null {
-        if(this.states !== null) {
+        if (this.states !== null) {
             for (const state of this.states) {
                 if (state.name === stateName) {
                     return state.value;
