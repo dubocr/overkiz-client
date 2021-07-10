@@ -227,13 +227,13 @@ export default class OverkizClient extends EventEmitter {
                         if (event.timeToNextState === -1) {
                             // No more state expected for this execution
                             delete this.executionPool[event.execId];
-                            if (!this.hasExecution()) {
-                                // Update polling frequency when no more execution
-                                this.setEventPollingPeriod(this.pollingPeriod);
-                            }
                         }
                     }
                 }
+            }
+            if (this.eventPollingPeriod < this.pollingPeriod && !this.hasExecution()) {
+                // Update polling frequency when no more execution
+                this.setEventPollingPeriod(this.pollingPeriod);
             }
         } catch (error) {
             nextExec = 10 * 1000; // Retry in 10 sec
