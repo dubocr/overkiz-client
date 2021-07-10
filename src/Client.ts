@@ -39,7 +39,7 @@ export default class OverkizClient extends EventEmitter {
         super();
         logger = Object.assign({}, log);
         logger.debug = (...args) => {
-            config['debug'] ? log.info(...args) : log.debug(...args);
+            config['debug'] ? log.info('\x1b[90m', ...args) : log.debug(...args);
         };
 
         // Default values

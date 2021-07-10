@@ -74,10 +74,10 @@ export default class RestClient extends EventEmitter {
                         throw msg;
                     }
                 } else if (error.message) {
-                    logger.debug('Error: ', error.message);
+                    logger.debug('Error:', error.message);
                     throw error.message;
                 } else {
-                    logger.debug('Error: ', error);
+                    logger.debug('Error:', error);
                     throw error;
                 }
             });
