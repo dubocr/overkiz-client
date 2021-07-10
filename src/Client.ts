@@ -243,6 +243,7 @@ export default class OverkizClient extends EventEmitter {
                     this.listenerId = null;
                 }
             }
+            logger.debug('Retry in ' + nextExec + ' ms');
         }
         this.eventPollingId = setTimeout(() => this.fetchEvents(), nextExec);
     }
