@@ -20,6 +20,7 @@ export default class OverkizClient extends EventEmitter {
     execPollingPeriod;
     pollingPeriod;
     refreshPeriod;
+    eventPollingPeriod;
     service;
     server;
     listenerId: null | number = null;
@@ -170,11 +171,12 @@ export default class OverkizClient extends EventEmitter {
     }
 
     private setEventPollingPeriod(period: number) {
+        this.eventPollingPeriod = period;
         if (this.eventPollingId !== null) {
             clearInterval(this.eventPollingId);
         }
         if (period > 0) {
-            this.eventPollingId = setInterval(this.fetchEvents.bind(this), period * 1000);
+            this.eventPollingId = setTimeout(() => this.fetchEvents(), period * 1000);
         }
     }
 
@@ -199,9 +201,8 @@ export default class OverkizClient extends EventEmitter {
     private async fetchEvents() {
         try {
             if (this.listenerId === null) {
-                await this.registerListener();
+                await this.registerListener().catch(logger.error);
             }
-
             const data = await this.restClient.post('/events/' + this.listenerId + '/fetch');
             for (const event of data) {
                 //logger.log(event);
@@ -231,9 +232,15 @@ export default class OverkizClient extends EventEmitter {
                 }
             }
         } catch (error) {
-            logger.error('Event Polling - Error with listener ' + this.listenerId);
+            if (this.listenerId) {
+                logger.error('Event Polling - Error with listener ' + this.listenerId);
+            } else {
+                logger.error('Event Polling - Error when registering listener ');
+            }
             logger.error(error);
             this.listenerId = null;
+        } finally {
+            this.eventPollingId = setTimeout(() => this.fetchEvents(), this.eventPollingPeriod * 1000);
         }
     }
 
