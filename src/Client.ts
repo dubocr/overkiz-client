@@ -175,20 +175,22 @@ export default class OverkizClient extends EventEmitter {
     }
 
     private setEventPollingPeriod(period: number) {
-        logger.debug('Set polling period to ' + period + ' sec');
-        if (this.eventPollingId !== null) {
-            clearInterval(this.eventPollingId);
-            this.eventPollingId = null;
-        }
-        this.eventPollingPeriod = period;
-        if (period > 0) {
-            this.eventPollingId = setInterval(async () => {
-                if (!this.fetchLock) {
-                    this.fetchLock = true;
-                    await this.fetchEvents();
-                    this.fetchLock = false;
-                }
-            }, period * 1000);
+        if (period !== this.eventPollingPeriod) {
+            logger.debug('Change polling period to ' + period + ' sec');
+            this.eventPollingPeriod = period;
+            if (this.eventPollingId !== null) {
+                clearInterval(this.eventPollingId);
+                this.eventPollingId = null;
+            }
+            if (period > 0) {
+                this.eventPollingId = setInterval(async () => {
+                    if (!this.fetchLock) {
+                        this.fetchLock = true;
+                        await this.fetchEvents();
+                        this.fetchLock = false;
+                    }
+                }, period * 1000);
+            }
         }
     }
 
