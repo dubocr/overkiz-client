@@ -149,9 +149,9 @@ export default class OverkizClient extends EventEmitter {
         }
         try {
             //Log(JSON.stringify(execution));
-            this.setEventPollingPeriod(this.execPollingPeriod);
             const data = await this.restClient.post('/exec/' + oid, execution);
             this.executionPool[data.execId] = execution;
+            this.setEventPollingPeriod(this.execPollingPeriod);
             return data.execId;
         } catch (error) {
             throw new ExecutionError(ExecutionState.FAILED, error);
