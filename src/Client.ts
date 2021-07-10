@@ -108,6 +108,7 @@ export default class OverkizClient extends EventEmitter {
     }
 
     private registerListener() {
+        logger.debug('Registering listener...');
         return this.restClient.post('/events/register')
             .then((data) => {
                 this.listenerId = data.id;
@@ -205,6 +206,7 @@ export default class OverkizClient extends EventEmitter {
             if (this.listenerId === null) {
                 await this.registerListener().catch((error) => logger.error(error));
             }
+            logger.debug('Polling events...');
             const data = await this.restClient.post('/events/' + this.listenerId + '/fetch');
             for (const event of data) {
                 //logger.log(event);
