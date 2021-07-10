@@ -41,8 +41,7 @@ export default class RestClient extends EventEmitter {
                             this.http.defaults.headers.common['Cookie'] = response.headers['set-cookie'];
                         }
                         this.emit('connect');
-                    })
-                    .finally(() => {
+                    }).finally(() => {
                         this.authRequest = null;
                     });
             }
@@ -76,7 +75,7 @@ export default class RestClient extends EventEmitter {
                     }
                 } else {
                     logger.error('Error: ', error.message);
-                    throw error;
+                    throw error.message;
                 }
             });
     }

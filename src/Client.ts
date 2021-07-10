@@ -232,7 +232,7 @@ export default class OverkizClient extends EventEmitter {
             }
         } catch (error) {
             logger.error('Event Polling - Error with listener ' + this.listenerId);
-            logger.error(error.message);
+            logger.error(error);
             this.listenerId = null;
         }
     }
