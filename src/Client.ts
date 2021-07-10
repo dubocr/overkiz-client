@@ -22,6 +22,7 @@ export default class OverkizClient extends EventEmitter {
     pollingPeriod;
     refreshPeriod;
     eventPollingPeriod;
+    fetchLock = false;
     service;
     server;
     listenerId: null | number = null;
@@ -166,20 +167,28 @@ export default class OverkizClient extends EventEmitter {
     private setRefreshPollingPeriod(period: number) {
         if (this.refreshPollingId !== null) {
             clearInterval(this.refreshPollingId);
+            this.refreshPollingId = null;
         }
         if (period > 0) {
-            this.refreshPollingId = setInterval(this.refreshAll.bind(this), period * 1000);
+            this.refreshPollingId = setInterval(() => this.refreshAll, period * 1000);
         }
     }
 
     private setEventPollingPeriod(period: number) {
         logger.debug('Set polling period to ' + period + ' sec');
-        this.eventPollingPeriod = period;
         if (this.eventPollingId !== null) {
-            clearTimeout(this.eventPollingId);
+            clearInterval(this.eventPollingId);
+            this.eventPollingId = null;
         }
+        this.eventPollingPeriod = period;
         if (period > 0) {
-            this.eventPollingId = setTimeout(() => this.fetchEvents(), period * 1000);
+            this.eventPollingId = setInterval(async () => {
+                if (!this.fetchLock) {
+                    this.fetchLock = true;
+                    await this.fetchEvents();
+                    this.fetchLock = false;
+                }
+            }, period * 1000);
         }
     }
 
@@ -202,7 +211,6 @@ export default class OverkizClient extends EventEmitter {
     }
 
     private async fetchEvents() {
-        let nextExec = this.eventPollingPeriod * 1000;
         try {
             if (this.listenerId === null) {
                 await this.registerListener().catch((error) => logger.error(error));
@@ -237,7 +245,6 @@ export default class OverkizClient extends EventEmitter {
                 this.setEventPollingPeriod(this.pollingPeriod);
             }
         } catch (error) {
-            nextExec = 10 * 1000; // Retry in 10 sec
             if (this.listenerId === null) {
                 logger.error('Register error -', error);
             } else {
@@ -246,9 +253,9 @@ export default class OverkizClient extends EventEmitter {
                     this.listenerId = null;
                 }
             }
-            logger.debug('Retry in ' + nextExec + ' ms');
+            logger.debug('Retry in 10 sec...');
+            await this.delay(10 * 1000);
         }
-        this.eventPollingId = setTimeout(() => this.fetchEvents(), nextExec);
     }
 
     private async delay(duration) {
