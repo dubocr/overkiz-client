@@ -233,10 +233,17 @@ export default class OverkizClient extends EventEmitter {
                 }
             }
         } catch (error) {
-            logger.error(this.listenerId ? 'Register error - ' : 'Polling error - ', error);
-            this.listenerId = null;
-        } finally {
-            this.eventPollingId = setTimeout(() => this.fetchEvents(), this.eventPollingPeriod * 1000);
+            let nextExec = this.eventPollingPeriod * 1000;
+            if (this.listenerId === null) {
+                logger.error('Register error -', error);
+                nextExec = 60 * 1000;
+            } else {
+                logger.error('Polling error -', error);
+                if (error.includes('Invalid event listener id')) {
+                    this.listenerId = null;
+                }
+            }
+            this.eventPollingId = setTimeout(() => this.fetchEvents(), nextExec);
         }
     }
 
