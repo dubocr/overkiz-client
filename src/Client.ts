@@ -173,9 +173,10 @@ export default class OverkizClient extends EventEmitter {
     }
 
     private setEventPollingPeriod(period: number) {
+        logger.debug('Set polling period to ' + period + ' sec');
         this.eventPollingPeriod = period;
         if (this.eventPollingId !== null) {
-            clearInterval(this.eventPollingId);
+            clearTimeout(this.eventPollingId);
         }
         if (period > 0) {
             this.eventPollingId = setTimeout(() => this.fetchEvents(), period * 1000);
