@@ -201,7 +201,7 @@ export default class OverkizClient extends EventEmitter {
     private async fetchEvents() {
         try {
             if (this.listenerId === null) {
-                await this.registerListener().catch(logger.error);
+                await this.registerListener().catch((error) => logger.error(error));
             }
             const data = await this.restClient.post('/events/' + this.listenerId + '/fetch');
             for (const event of data) {
@@ -232,12 +232,7 @@ export default class OverkizClient extends EventEmitter {
                 }
             }
         } catch (error) {
-            if (this.listenerId) {
-                logger.error('Event Polling - Error with listener ' + this.listenerId);
-            } else {
-                logger.error('Event Polling - Error when registering listener');
-            }
-            logger.error(error);
+            logger.error(this.listenerId ? 'Register error - ' : 'Polling error - ', error);
             this.listenerId = null;
         } finally {
             this.eventPollingId = setTimeout(() => this.fetchEvents(), this.eventPollingPeriod * 1000);
