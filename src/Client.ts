@@ -235,7 +235,7 @@ export default class OverkizClient extends EventEmitter {
             if (this.listenerId) {
                 logger.error('Event Polling - Error with listener ' + this.listenerId);
             } else {
-                logger.error('Event Polling - Error when registering listener ');
+                logger.error('Event Polling - Error when registering listener');
             }
             logger.error(error);
             this.listenerId = null;
