@@ -7,11 +7,11 @@ import RestClient from './RestClient';
 export let logger;
 
 enum ApiEndpoint {
-    'cozytouch' = 'https://ha110-1.overkiz.com/enduser-mobile-web/enduserAPI',
     'tahoma' = 'https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI',
     'tahoma_switch' = 'https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI',
     'connexoon' = 'https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI',
     'connexoon_rts' = 'https://ha201-1.overkiz.com/enduser-mobile-web/enduserAPI',
+    'cozytouch' = 'https://ha110-1.overkiz.com/enduser-mobile-web/enduserAPI',
     'rexel' = 'https://ha112-1.overkiz.com/enduser-mobile-web/enduserAPI',
     'debug' = 'https://dev.duboc.pro/api/overkiz'
 }
