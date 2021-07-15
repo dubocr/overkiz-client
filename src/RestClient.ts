@@ -3,11 +3,15 @@ import { EventEmitter } from 'events';
 import { URLSearchParams } from 'url';
 import { logger } from './Client';
 
+const DEFAULT_RETRY_DELAY = 60;
+
 export default class RestClient extends EventEmitter {
     cookies: string;
     logged: boolean;
     authRequest: Promise<unknown> | null = null;
     http;
+    lockDelay = DEFAULT_RETRY_DELAY;
+    lockRequest = false;
 
     constructor(private readonly user: string, private readonly password: string, private readonly baseUrl: string) {
         super();
@@ -25,6 +29,9 @@ export default class RestClient extends EventEmitter {
     }
 
     private request(options) {
+        if (this.lockRequest) {
+            throw new Error('API requests locked for ' + this.lockDelay + ' sec');
+        }
         let request;
         if (this.logged) {
             request = this.http(options);
@@ -41,6 +48,14 @@ export default class RestClient extends EventEmitter {
                             this.http.defaults.headers.common['Cookie'] = response.headers['set-cookie'];
                         }
                         this.emit('connect');
+                        this.lockDelay = DEFAULT_RETRY_DELAY;
+                    }).catch((error) => {
+                        this.lockRequest = true;
+                        setTimeout(() => {
+                            this.lockRequest = false;
+                        }, this.lockDelay * 1000);
+                        this.lockDelay *= 2;
+                        throw error;
                     }).finally(() => {
                         this.authRequest = null;
                     });
