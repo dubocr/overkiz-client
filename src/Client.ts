@@ -25,7 +25,7 @@ export default class OverkizClient extends EventEmitter {
     fetchLock = false;
     service;
     server;
-    listenerId: null | number = null;
+    listenerId: null | string = null;
     executionPool: Execution[] = [];
     stateChangedEventListener = null;
 
@@ -66,6 +66,8 @@ export default class OverkizClient extends EventEmitter {
             this.setEventPollingPeriod(this.pollingPeriod);
         });
         this.restClient.on('disconnect', () => {
+            this.setRefreshPollingPeriod(0);
+            this.setEventPollingPeriod(0);
             this.listenerId = null;
         });
     }
@@ -176,13 +178,12 @@ export default class OverkizClient extends EventEmitter {
 
     private setEventPollingPeriod(period: number) {
         if (period !== this.eventPollingPeriod) {
-            logger.debug('Change polling period to ' + period + ' sec');
             this.eventPollingPeriod = period;
-            if (this.eventPollingId !== null) {
-                clearInterval(this.eventPollingId);
-                this.eventPollingId = null;
-            }
+            clearInterval(this.eventPollingId);
+            this.eventPollingId = null;
+
             if (period > 0) {
+                logger.debug('Change event polling period to ' + period + ' sec');
                 this.eventPollingId = setInterval(async () => {
                     if (!this.fetchLock) {
                         this.fetchLock = true;
@@ -190,6 +191,8 @@ export default class OverkizClient extends EventEmitter {
                         this.fetchLock = false;
                     }
                 }, period * 1000);
+            } else {
+                logger.debug('Disable event polling');
             }
         }
     }
@@ -255,8 +258,7 @@ export default class OverkizClient extends EventEmitter {
                     this.listenerId = null;
                 }
             }
-            logger.debug('Retry in 10 sec...');
-            await this.delay(10 * 1000);
+            await this.delay(10 * 1000); // Will lock the poller for 10 sec in case of error
         }
     }
 
