@@ -156,6 +156,11 @@ export default class OverkizClient extends EventEmitter {
             const data = await this.restClient.post('/exec/' + oid, execution);
             this.executionPool[data.execId] = execution;
             this.setEventPollingPeriod(this.execPollingPeriod);
+            setTimeout(() => {
+                if (this.executionPool[data.execId]) {
+                    delete this.executionPool[data.execId];
+                }
+            }, 60 * 1000); // Auto remove execution after 60 sec (in case listener miss it)
             return data.execId;
         } catch (error) {
             throw new ExecutionError(ExecutionState.FAILED, error);
@@ -185,7 +190,9 @@ export default class OverkizClient extends EventEmitter {
             if (period > 0) {
                 logger.debug('Change event polling period to ' + period + ' sec');
                 this.eventPollingId = setInterval(async () => {
-                    if (!this.fetchLock) {
+                    if (this.eventPollingPeriod !== this.pollingPeriod && !this.hasExecution()) {
+                        this.setEventPollingPeriod(this.pollingPeriod); // Update polling frequency when no more execution
+                    } else if (!this.fetchLock) {
                         this.fetchLock = true;
                         await this.fetchEvents();
                         this.fetchLock = false;
@@ -244,10 +251,6 @@ export default class OverkizClient extends EventEmitter {
                         }
                     }
                 }
-            }
-            if (this.eventPollingPeriod < this.pollingPeriod && !this.hasExecution()) {
-                // Update polling frequency when no more execution
-                this.setEventPollingPeriod(this.pollingPeriod);
             }
         } catch (error) {
             if (this.listenerId === null) {
