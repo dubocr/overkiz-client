@@ -160,7 +160,7 @@ export default class OverkizClient extends EventEmitter {
                 if (this.executionPool[data.execId]) {
                     delete this.executionPool[data.execId];
                 }
-            }, 60 * 1000); // Auto remove execution after 60 sec (in case listener miss it)
+            }, 2 * 60 * 1000); // Auto remove execution after 2 min (in case listener miss it)
             return data.execId;
         } catch (error) {
             throw new ExecutionError(ExecutionState.FAILED, error);
