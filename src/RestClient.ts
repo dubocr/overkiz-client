@@ -3,7 +3,7 @@ import { EventEmitter } from 'events';
 import { URLSearchParams } from 'url';
 import { logger } from './Client';
 
-const API_LOCKDOWN_DELAY = 60 * 60 * 1000;
+const API_LOCKDOWN_DELAY = 6 * 60 * 60 * 1000;
 
 export default class RestClient extends EventEmitter {
     private http: AxiosInstance;
@@ -94,7 +94,9 @@ export default class RestClient extends EventEmitter {
                             if (error.response.data.errorCode === 'AUTHENTICATION_ERROR') {
                                 this.badCredentials = true;
                                 logger.warn(
-                                    'API client will be locked for ' + (API_LOCKDOWN_DELAY / 60000) + ' min because of bad credentials',
+                                    'API client will be locked for '
+                                    + (API_LOCKDOWN_DELAY / 60 * 60 * 1000)
+                                    + ' hours because of bad credentials',
                                 );
                                 setTimeout(() => {
                                     this.badCredentials = false;
