@@ -74,8 +74,12 @@ export default class OverkizClient extends EventEmitter {
         });
     }
 
-    public hasExecution() {
-        return Object.keys(this.executionPool).length > 0;
+    public hasExecution(execId?: string) {
+        if (execId) {
+            return execId in this.executionPool;
+        } else {
+            return Object.keys(this.executionPool).length > 0;
+        }
     }
 
     public async getDevices(): Promise<Array<Device>> {
