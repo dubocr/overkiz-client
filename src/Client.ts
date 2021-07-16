@@ -118,7 +118,7 @@ export default class OverkizClient extends EventEmitter {
 
     private async registerListener() {
         if (this.listenerId === null) {
-            logger.debug('Registering event listener...');
+            //logger.debug('Registering event listener...');
             const data = await this.restClient.post('/events/register');
             this.listenerId = data.id;
         }
@@ -126,7 +126,7 @@ export default class OverkizClient extends EventEmitter {
 
     private async unregisterListener() {
         if (this.listenerId !== null) {
-            logger.debug('Unregistering event listener...');
+            //logger.debug('Unregistering event listener...');
             await this.restClient.post('/events/' + this.listenerId + '/unregister');
             this.listenerId = null;
         }
@@ -219,7 +219,7 @@ export default class OverkizClient extends EventEmitter {
 
     private async refreshTask() {
         try {
-            logger.debug('Refresh all devices');
+            //logger.debug('Refresh all devices');
             await this.refreshStates();
             await this.delay(10 * 1000); // Wait for device radio refresh
             const devices = await this.getDevices();
@@ -250,7 +250,7 @@ export default class OverkizClient extends EventEmitter {
     private async fetchEvents() {
         try {
             await this.registerListener();
-            logger.debug('Polling events...');
+            //logger.debug('Polling events...');
             const data = await this.restClient.post('/events/' + this.listenerId + '/fetch');
             for (const event of data) {
                 //logger.log(event);

@@ -14,12 +14,12 @@ export default class RestClient extends EventEmitter {
     constructor(private readonly user: string, private readonly password: string, private readonly baseUrl: string) {
         super();
         this.http = axios.create({
-            baseURL: baseUrl,
+            baseURL: this.baseUrl,
             withCredentials: true,
         });
 
         this.http.interceptors.request.use(request => {
-            logger.debug('Request', request.url);
+            logger.debug(request.method?.toUpperCase(), request.url);
             return request;
         });
     }
