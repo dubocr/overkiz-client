@@ -151,7 +151,7 @@ export default class OverkizClient extends EventEmitter {
         callback: Callback function executed when command sended
     */
     async execute(oid, execution) {
-        //Log(execution);
+        //logger.debug(JSON.stringify(execution));
         if (this.executionPool.length >= 10) {
             // Avoid EXEC_QUEUE_FULL (max 10 commands simultaneous)
             // Postpone in 10 sec
@@ -159,12 +159,14 @@ export default class OverkizClient extends EventEmitter {
             return await this.execute(oid, execution);
         }
         try {
-            //Log(JSON.stringify(execution));
-            // Prepare event poller for execution monitoring
-            await this.setEventPollingPeriod(this.execPollingPeriod);
+            // Prepare listener
+            await this.registerListener().catch((error) => logger.error(error));
 
             const data = await this.restClient.post('/exec/' + oid, execution);
             this.executionPool[data.execId] = execution;
+
+            // Update event poller for execution monitoring
+            this.setEventPollingPeriod(this.execPollingPeriod);
 
             // Auto remove execution in case of timeout (eg: listener event missed, listener registration fails)
             setTimeout(() => {
@@ -196,7 +198,7 @@ export default class OverkizClient extends EventEmitter {
         }
     }
 
-    private async setEventPollingPeriod(period: number) {
+    private setEventPollingPeriod(period: number) {
         if (period !== this.eventPollingPeriod) {
             this.eventPollingPeriod = period;
 
@@ -208,11 +210,9 @@ export default class OverkizClient extends EventEmitter {
 
             if (period > 0) {
                 logger.debug('Change event polling period to ' + period + ' sec');
-                await this.registerListener().catch((error) => logger.error(error));
                 this.eventPollingId = setInterval(this.pollingTask.bind(this), period * 1000);
             } else {
                 logger.debug('Disable event polling');
-                await this.unregisterListener().catch((error) => logger.error(error));
             }
         }
     }
