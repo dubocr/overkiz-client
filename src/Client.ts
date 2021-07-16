@@ -6,6 +6,8 @@ import RestClient from './RestClient';
 
 export let logger;
 
+const EXEC_TIMEOUT = 2 * 60 * 1000;
+
 enum ApiEndpoint {
     'tahoma' = 'https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI',
     'tahoma_switch' = 'https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI',
@@ -17,24 +19,24 @@ enum ApiEndpoint {
 }
 
 export default class OverkizClient extends EventEmitter {
-    apiEndpoint: string;
-    execPollingPeriod;
-    pollingPeriod;
-    refreshPeriod;
-    eventPollingPeriod;
-    fetchLock = false;
-    service;
-    server;
-    listenerId: null | string = null;
-    executionPool: Execution[] = [];
-    stateChangedEventListener = null;
+    private restClient: RestClient;
+    private apiEndpoint: string;
 
-    restClient: RestClient;
+    private service: string;
 
-    devices: Array<Device> = new Array<Device>();
+    private fetchLock = false;
+    private executionPool: Execution[] = [];
 
-    refreshPollingId;
-    eventPollingId;
+    private devices: Array<Device> = new Array<Device>();
+
+    private pollingPeriod: number;
+    private refreshPeriod: number;
+    private execPollingPeriod: number;
+    private eventPollingPeriod = 0;
+
+    private eventPollingId: NodeJS.Timeout | null = null;
+    private refreshPollingId: NodeJS.Timeout | null = null;
+    private listenerId: null | string = null;
 
     constructor(public readonly log, public readonly config) {
         super();
@@ -44,8 +46,8 @@ export default class OverkizClient extends EventEmitter {
         };
 
         // Default values
-        this.execPollingPeriod = config['execPollingPeriod'] || 2; // Poll for execution events every 2 seconds by default
-        this.pollingPeriod = config['pollingPeriod'] || 60; // Don't continuously poll for events by default (in seconds)
+        this.execPollingPeriod = config['execPollingPeriod'] || 5; // Poll for execution events every 5 seconds by default (in seconds)
+        this.pollingPeriod = config['pollingPeriod'] || 60; // Poll for events every 60 seconds by default (in seconds)
         this.refreshPeriod = (config['refreshPeriod'] || 30) * 60; // Refresh device states every 30 minutes by default (in minutes)
         this.service = config['service'] || 'tahoma';
 
@@ -66,9 +68,9 @@ export default class OverkizClient extends EventEmitter {
             this.setEventPollingPeriod(this.pollingPeriod);
         });
         this.restClient.on('disconnect', () => {
+            this.listenerId = null;
             this.setRefreshPollingPeriod(0);
             this.setEventPollingPeriod(0);
-            this.listenerId = null;
         });
     }
 
@@ -110,28 +112,29 @@ export default class OverkizClient extends EventEmitter {
         return this.restClient.get('/actionGroups').then((result) => result.map((data) => data as ActionGroup));
     }
 
-    private registerListener() {
-        logger.debug('Registering listener...');
-        return this.restClient.post('/events/register')
-            .then((data) => {
-                this.listenerId = data.id;
-            });
+    private async registerListener() {
+        if (this.listenerId === null) {
+            logger.debug('Registering event listener...');
+            const data = await this.restClient.post('/events/register');
+            this.listenerId = data.id;
+        }
     }
 
     private async unregisterListener() {
-        return this.restClient.post('/events/' + this.listenerId + '/unregister')
-            .then(() => {
-                this.listenerId = null;
-            });
+        if (this.listenerId !== null) {
+            logger.debug('Unregistering event listener...');
+            await this.restClient.post('/events/' + this.listenerId + '/unregister');
+            this.listenerId = null;
+        }
     }
 
     refreshStates() {
         return this.restClient.put('/setup/devices/states/refresh');
     }
 
-    requestState(deviceURL, state) {
-        return this.restClient.get('/setup/devices/' + encodeURIComponent(deviceURL) + '/states/' + encodeURIComponent(state))
-            .then((data) => data.value);
+    async requestState(deviceURL, state) {
+        const data = await this.restClient.get('/setup/devices/' + encodeURIComponent(deviceURL) + '/states/' + encodeURIComponent(state));
+        return data.value;
     }
 
     async cancelExecution(execId) {
@@ -153,14 +156,21 @@ export default class OverkizClient extends EventEmitter {
         }
         try {
             //Log(JSON.stringify(execution));
+            // Prepare event poller for execution monitoring
+            await this.setEventPollingPeriod(this.execPollingPeriod);
+
             const data = await this.restClient.post('/exec/' + oid, execution);
             this.executionPool[data.execId] = execution;
-            this.setEventPollingPeriod(this.execPollingPeriod);
+
+            // Auto remove execution in case of timeout (eg: listener event missed, listener registration fails)
             setTimeout(() => {
-                if (this.executionPool[data.execId]) {
+                const execution = this.executionPool[data.execId];
+                if (execution) {
+                    execution.onStateUpdate(ExecutionState.TIMED_OUT, null);
                     delete this.executionPool[data.execId];
                 }
-            }, 2 * 60 * 1000); // Auto remove execution after 2 min (in case listener miss it)
+            }, EXEC_TIMEOUT);
+
             return data.execId;
         } catch (error) {
             throw new ExecutionError(ExecutionState.FAILED, error);
@@ -172,39 +182,38 @@ export default class OverkizClient extends EventEmitter {
     }
 
     private setRefreshPollingPeriod(period: number) {
-        if (this.refreshPollingId !== null) {
+        // Clear previous task
+        if (this.refreshPollingId) {
             clearInterval(this.refreshPollingId);
             this.refreshPollingId = null;
         }
         if (period > 0) {
-            this.refreshPollingId = setInterval(() => this.refreshAll, period * 1000);
+            this.refreshPollingId = setInterval(this.refreshTask.bind(this), period * 1000);
         }
     }
 
-    private setEventPollingPeriod(period: number) {
+    private async setEventPollingPeriod(period: number) {
         if (period !== this.eventPollingPeriod) {
             this.eventPollingPeriod = period;
-            clearInterval(this.eventPollingId);
-            this.eventPollingId = null;
+
+            // Clear previous task
+            if (this.eventPollingId) {
+                clearInterval(this.eventPollingId);
+                this.eventPollingId = null;
+            }
 
             if (period > 0) {
                 logger.debug('Change event polling period to ' + period + ' sec');
-                this.eventPollingId = setInterval(async () => {
-                    if (this.eventPollingPeriod !== this.pollingPeriod && !this.hasExecution()) {
-                        this.setEventPollingPeriod(this.pollingPeriod); // Update polling frequency when no more execution
-                    } else if (!this.fetchLock) {
-                        this.fetchLock = true;
-                        await this.fetchEvents();
-                        this.fetchLock = false;
-                    }
-                }, period * 1000);
+                await this.registerListener().catch((error) => logger.error(error));
+                this.eventPollingId = setInterval(this.pollingTask.bind(this), period * 1000);
             } else {
                 logger.debug('Disable event polling');
+                await this.unregisterListener().catch((error) => logger.error(error));
             }
         }
     }
 
-    private async refreshAll() {
+    private async refreshTask() {
         try {
             logger.debug('Refresh all devices');
             await this.refreshStates();
@@ -222,11 +231,21 @@ export default class OverkizClient extends EventEmitter {
         }
     }
 
+    private async pollingTask() {
+        if (this.eventPollingPeriod !== this.pollingPeriod && !this.hasExecution()) {
+            // Restore default polling frequency if no more execution in progress
+            this.setEventPollingPeriod(this.pollingPeriod);
+        } else if (!this.fetchLock) {
+            // Execute task if not already running
+            this.fetchLock = true;
+            await this.fetchEvents();
+            this.fetchLock = false;
+        }
+    }
+
     private async fetchEvents() {
         try {
-            if (this.listenerId === null) {
-                await this.registerListener().catch((error) => logger.error(error));
-            }
+            await this.registerListener();
             logger.debug('Polling events...');
             const data = await this.restClient.post('/events/' + this.listenerId + '/fetch');
             for (const event of data) {
@@ -253,15 +272,12 @@ export default class OverkizClient extends EventEmitter {
                 }
             }
         } catch (error) {
-            if (this.listenerId === null) {
-                logger.error('Register error -', error);
-            } else {
-                logger.error('Polling error -', error);
-                if (error.includes('Invalid event listener id')) {
-                    this.listenerId = null;
-                }
+            logger.error('Polling error -', error);
+            if (this.listenerId === null && (error.includes('NOT_REGISTERED') || error.includes('UNSPECIFIED_ERROR'))) {
+                this.listenerId = null;
             }
-            await this.delay(10 * 1000); // Will lock the poller for 10 sec in case of error
+            // Will lock the poller for 10 sec in case of error
+            await this.delay(10 * 1000);
         }
     }
 

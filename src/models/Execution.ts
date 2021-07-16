@@ -7,7 +7,8 @@ export enum ExecutionState {
     TRANSMITTED = 'TRANSMITTED',
     IN_PROGRESS = 'IN_PROGRESS',
     COMPLETED = 'COMPLETED',
-    FAILED = 'FAILED'
+    FAILED = 'FAILED',
+    TIMED_OUT = 'TIMED_OUT'
 }
 
 export class ExecutionError extends Error {
@@ -39,7 +40,7 @@ export default class Execution extends EventEmitter {
 
     constructor(public label: string, action?: Action) {
         super();
-        if(action) {
+        if (action) {
             this.addAction(action);
         }
     }
@@ -50,10 +51,10 @@ export default class Execution extends EventEmitter {
 
     onStateUpdate(state, event) {
         this.emit('update', state, event);
-        if(event.failureType && event.failedCommands) {
+        if (event.failureType && event.failedCommands) {
             this.actions.forEach((action) => {
                 const failure = event.failedCommands.find((c) => c.deviceURL === action.deviceURL);
-                if(failure) {
+                if (failure) {
                     action.emit('update', ExecutionState.FAILED, failure);
                 } else {
                     action.emit('update', ExecutionState.COMPLETED);
@@ -62,5 +63,5 @@ export default class Execution extends EventEmitter {
         } else {
             this.actions.forEach((action) => action.emit('update', state, event));
         }
-    }x
+    } x
 }
