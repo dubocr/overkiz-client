@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import { Device, ExecutionState } from '.';
+import { Device, ExecutionState, Location } from '.';
 import ActionGroup from './models/ActionGroup';
 import Execution, { ExecutionError } from './models/Execution';
 import RestClient from './RestClient';
@@ -110,6 +110,10 @@ export default class OverkizClient extends EventEmitter {
             }
         });
         return physicalDevices;
+    }
+
+    public async getSetupLocation(): Promise<Location> {
+        return await this.restClient.get('/setup/location') as Location;
     }
 
     public async getActionGroups(): Promise<Array<ActionGroup>> {
