@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events';
 import { Device, ExecutionState, Location } from '.';
 import ActionGroup from './models/ActionGroup';
+import { State } from './models/Device';
 import Execution, { ExecutionError } from './models/Execution';
 import RestClient from './RestClient';
 
@@ -147,6 +148,11 @@ export default class OverkizClient extends EventEmitter {
     async requestState(deviceURL, state) {
         const data = await this.restClient.get('/setup/devices/' + encodeURIComponent(deviceURL) + '/states/' + encodeURIComponent(state));
         return data.value;
+    }
+
+    async requestStates(deviceURL): Promise<Array<State>> {
+        const states = await this.restClient.get('/setup/devices/' + encodeURIComponent(deviceURL) + '/states');
+        return states;
     }
 
     async cancelExecution(execId) {
