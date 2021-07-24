@@ -152,7 +152,7 @@ export default class OverkizClient extends EventEmitter {
 
     async refreshDeviceStates(deviceURL: string) {
         await this.restClient.post('/setup/devices/' + encodeURIComponent(deviceURL) + '/states/refresh');
-        if (!this.eventPollingPeriod || this.listenerId === null) {
+        if (this.eventPollingPeriod > this.execPollingPeriod || this.listenerId === null) {
             await this.delay(2 * 1000); // Wait for device radio refresh
             const states = await this.getStates(deviceURL);
             const device = this.devices[deviceURL];
