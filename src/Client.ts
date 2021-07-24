@@ -137,7 +137,7 @@ export default class OverkizClient extends EventEmitter {
         }
     }
 
-    async refreshStates() {
+    async refreshAllStates() {
         await this.restClient.post('/setup/devices/states/refresh');
         await this.delay(10 * 1000); // Wait for device radio refresh
         const devices = await this.getDevices();
@@ -152,12 +152,14 @@ export default class OverkizClient extends EventEmitter {
 
     async refreshDeviceStates(deviceURL: string) {
         await this.restClient.post('/setup/devices/' + encodeURIComponent(deviceURL) + '/states/refresh');
-        await this.delay(5 * 1000); // Wait for device radio refresh
-        const states = await this.getStates(deviceURL);
-        const device = this.devices[deviceURL];
-        if (device) {
-            device.states = states;
-            device.emit('states', states);
+        if (!this.eventPollingPeriod || this.listenerId === null) {
+            await this.delay(5 * 1000); // Wait for device radio refresh
+            const states = await this.getStates(deviceURL);
+            const device = this.devices[deviceURL];
+            if (device) {
+                device.states = states;
+                device.emit('states', states);
+            }
         }
     }
 
@@ -250,7 +252,7 @@ export default class OverkizClient extends EventEmitter {
     private async refreshTask() {
         try {
             //logger.debug('Refresh all devices');
-            await this.refreshStates();
+            await this.refreshAllStates();
         } catch (error) {
             logger.error(error);
         }
