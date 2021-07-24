@@ -138,19 +138,35 @@ export default class OverkizClient extends EventEmitter {
     }
 
     async refreshStates() {
-        return await this.restClient.post('/setup/devices/states/refresh');
+        await this.restClient.post('/setup/devices/states/refresh');
+        await this.delay(10 * 1000); // Wait for device radio refresh
+        const devices = await this.getDevices();
+        devices.forEach((fresh) => {
+            const device = this.devices[fresh.deviceURL];
+            if (device) {
+                device.states = fresh.states;
+                device.emit('states', fresh.states);
+            }
+        });
     }
 
     async refreshDeviceStates(deviceURL: string) {
-        return await this.restClient.post('/setup/devices/' + encodeURIComponent(deviceURL) + '/states/refresh');
+        await this.restClient.post('/setup/devices/' + encodeURIComponent(deviceURL) + '/states/refresh');
+        await this.delay(5 * 1000); // Wait for device radio refresh
+        const states = await this.getStates(deviceURL);
+        const device = this.devices[deviceURL];
+        if (device) {
+            device.states = states;
+            device.emit('states', states);
+        }
     }
 
-    async requestState(deviceURL, state) {
+    async getState(deviceURL, state) {
         const data = await this.restClient.get('/setup/devices/' + encodeURIComponent(deviceURL) + '/states/' + encodeURIComponent(state));
         return data.value;
     }
 
-    async requestStates(deviceURL): Promise<Array<State>> {
+    async getStates(deviceURL): Promise<Array<State>> {
         const states = await this.restClient.get('/setup/devices/' + encodeURIComponent(deviceURL) + '/states');
         return states;
     }
@@ -235,15 +251,6 @@ export default class OverkizClient extends EventEmitter {
         try {
             //logger.debug('Refresh all devices');
             await this.refreshStates();
-            await this.delay(10 * 1000); // Wait for device radio refresh
-            const devices = await this.getDevices();
-            devices.forEach((fresh) => {
-                const device = this.devices[fresh.deviceURL];
-                if (device) {
-                    device.states = fresh.states;
-                    device.emit('states', fresh.states);
-                }
-            });
         } catch (error) {
             logger.error(error);
         }
