@@ -10,7 +10,7 @@ async function main() {
         service: process.env.SERVICE,
         user: process.env.USERNAME,
         password: process.env.PASSWORD,
-        pollingPeriod: 10,
+        pollingPeriod: 0,
         refreshPeriod: 30,
     });
 
@@ -24,6 +24,12 @@ async function main() {
             console.log(device.label + ' states updated');
             states.forEach((state: State) => console.log('\t - ' + state.name + '=' + state.value));
         });
+    });
+
+    process.openStdin().addListener('data', async (d) => {
+        const data = d.toString().trim();
+        console.log('Input: ' + data);
+        await client.refreshDeviceStates(data);
     });
 }
 main().catch(console.error);
