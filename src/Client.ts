@@ -137,11 +137,11 @@ export default class OverkizClient extends EventEmitter {
     }
 
     async refreshStates() {
-        return await this.restClient.put('/setup/devices/states/refresh');
+        return await this.restClient.post('/setup/devices/states/refresh');
     }
 
     async refreshDeviceStates(deviceURL: string) {
-        return await this.restClient.put('/setup/devices/' + encodeURIComponent(deviceURL) + '/states/refresh');
+        return await this.restClient.post('/setup/devices/' + encodeURIComponent(deviceURL) + '/states/refresh');
     }
 
     async requestState(deviceURL, state) {

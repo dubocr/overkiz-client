@@ -14,6 +14,7 @@ async function main() {
         refreshPeriod: 30,
     });
 
+    //await client.refreshStates();
     const devices = await client.getDevices();
     console.log(`${devices.length} devices`);
     devices.forEach((device: Device) => {
