@@ -96,7 +96,8 @@ export default class RestClient extends EventEmitter {
                                 logger.warn(
                                     'API client will be locked for '
                                     + API_LOCKDOWN_DELAY
-                                    + ' hours because of bad credentials, restart plugin to force login retry',
+                                    + ' hours because of bad credentials or temporary service outage.'
+                                    + ' You can restart plugin to force login retry.',
                                 );
                                 setTimeout(() => {
                                     this.badCredentials = false;
