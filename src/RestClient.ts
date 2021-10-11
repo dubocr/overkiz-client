@@ -5,14 +5,29 @@ import { logger } from './Client';
 
 const API_LOCKDOWN_DELAY = 6;
 
+enum ApiEndpoint {
+    'tahoma' = 'https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI',
+    'tahoma_switch' = 'https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI',
+    'connexoon' = 'https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI',
+    'connexoon_rts' = 'https://ha201-1.overkiz.com/enduser-mobile-web/enduserAPI',
+    'cozytouch' = 'https://ha110-1.overkiz.com/enduser-mobile-web/enduserAPI',
+    'rexel' = 'https://ha112-1.overkiz.com/enduser-mobile-web/enduserAPI',
+    'debug' = 'https://dev.duboc.pro/api/overkiz'
+}
+
 export default class RestClient extends EventEmitter {
     private http: AxiosInstance;
     private authRequest?: Promise<unknown>;
     private isLogged = false;
     private badCredentials = false;
+    private readonly baseUrl: string;
 
-    constructor(private readonly user: string, private readonly password: string, private readonly baseUrl: string) {
+    constructor(private readonly user: string, private readonly password: string, private readonly service: string) {
         super();
+        this.baseUrl = ApiEndpoint[this.service.toLowerCase()];
+        if (!this.baseUrl) {
+            throw new Error('Invalid service name: ' + this.service);
+        }
         this.http = axios.create({
             baseURL: this.baseUrl,
             withCredentials: true,
@@ -54,7 +69,28 @@ export default class RestClient extends EventEmitter {
         });
     }
 
-    private request(options) {
+    private async getToken() {
+        const headers = {
+            'Authorization': 'Basic czduc0RZZXdWbjVGbVV4UmlYN1pVSUM3ZFI4YTphSDEzOXZmbzA1ZGdqeDJkSFVSQkFTbmhCRW9h',
+        };
+        const params = new URLSearchParams();
+        params.append('grant_type', 'password');
+        params.append('username', this.user);
+        params.append('password', this.password);
+        const result = await this.http.post('https://api.groupe-atlantic.com/token', params, {headers});
+        return result.data.access_token;
+    }
+
+    public async getJwt() {
+        const token = await this.getToken();
+        const headers = {
+            'Authorization': `Bearer ${token}`,
+        };
+        const result = await this.http.get('https://api.groupe-atlantic.com/gacoma/gacomawcfservice/accounts/jwt', {headers});
+        return result.data.trim();
+    }
+
+    private async request(options) {
         if (this.badCredentials) {
             throw 'API client locked. Please check your credentials then restart.\n'
             + 'If your credentials are valid, please wait some hours to be unbanned';
@@ -65,8 +101,13 @@ export default class RestClient extends EventEmitter {
         } else {
             if (this.authRequest === undefined) {
                 const params = new URLSearchParams();
-                params.append('userId', this.user);
-                params.append('userPassword', this.password);
+                if(this.service === 'cozytouch') {
+                    const jwt = await this.getJwt();
+                    params.append('jwt', jwt);
+                } else {
+                    params.append('userId', this.user);
+                    params.append('userPassword', this.password);
+                }
                 this.authRequest = this.http.post('/login', params)
                     .then((response) => {
                         this.isLogged = true;

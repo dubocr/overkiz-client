@@ -9,19 +9,8 @@ export let logger;
 
 const EXEC_TIMEOUT = 2 * 60 * 1000;
 
-enum ApiEndpoint {
-    'tahoma' = 'https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI',
-    'tahoma_switch' = 'https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI',
-    'connexoon' = 'https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI',
-    'connexoon_rts' = 'https://ha201-1.overkiz.com/enduser-mobile-web/enduserAPI',
-    'cozytouch' = 'https://ha110-1.overkiz.com/enduser-mobile-web/enduserAPI',
-    'rexel' = 'https://ha112-1.overkiz.com/enduser-mobile-web/enduserAPI',
-    'debug' = 'https://dev.duboc.pro/api/overkiz'
-}
-
 export default class OverkizClient extends EventEmitter {
     private restClient: RestClient;
-    private apiEndpoint: string;
 
     private service: string;
 
@@ -55,11 +44,7 @@ export default class OverkizClient extends EventEmitter {
         if (!config['user'] || !config['password']) {
             throw new Error('You must provide credentials (user / password)');
         }
-        this.apiEndpoint = ApiEndpoint[this.service.toLowerCase()];
-        if (!this.apiEndpoint) {
-            throw new Error('Invalid service name: ' + this.service);
-        }
-        this.restClient = new RestClient(config['user'], config['password'], this.apiEndpoint);
+        this.restClient = new RestClient(config['user'], config['password'], this.service.toLowerCase());
 
 
         this.listenerId = null;
