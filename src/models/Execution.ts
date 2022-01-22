@@ -51,7 +51,7 @@ export default class Execution extends EventEmitter {
 
     onStateUpdate(state, event) {
         this.emit('update', state, event);
-        if (event.failureType && event.failedCommands) {
+        if (event !== null && event.failureType && event.failedCommands) {
             this.actions.forEach((action) => {
                 const failure = event.failedCommands.find((c) => c.deviceURL === action.deviceURL);
                 if (failure) {

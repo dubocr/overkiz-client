@@ -3,9 +3,6 @@ import { EventEmitter } from 'events';
 import { URLSearchParams } from 'url';
 import { logger } from './Client';
 
-const API_LOCKDOWN_DELAY = 6;
-
-
 interface AuthProvider {
     getLoginParams(user: string, password: string): Promise<URLSearchParams>;
 }
@@ -69,6 +66,7 @@ export default class RestClient extends EventEmitter {
     private authRequest?: Promise<unknown>;
     private isLogged = false;
     private badCredentials = false;
+    private lockdownDelay = 60;
 
     constructor(private readonly user: string, private readonly password: string, private readonly endpoint: ApiEndpoint) {
         super();
@@ -127,6 +125,7 @@ export default class RestClient extends EventEmitter {
                     .then((params) => this.http.post('/login', params))
                     .then((response) => {
                         this.isLogged = true;
+                        this.lockdownDelay = 60;
                         if (response.headers['set-cookie']) {
                             this.http.defaults.headers.common['Cookie'] = response.headers['set-cookie'];
                         }
@@ -152,13 +151,14 @@ export default class RestClient extends EventEmitter {
                                 this.badCredentials = true;
                                 logger.warn(
                                     'API client will be locked for '
-                                    + API_LOCKDOWN_DELAY
+                                    + this.lockdownDelay
                                     + ' hours because of bad credentials or temporary service outage.'
                                     + ' You can restart plugin to force login retry.',
                                 );
                                 setTimeout(() => {
                                     this.badCredentials = false;
-                                }, API_LOCKDOWN_DELAY * 60 * 60 * 1000);
+                                    this.lockdownDelay *= 2;
+                                }, this.lockdownDelay * 1000);
                             }
                             throw error.response.data.error;
                         }
