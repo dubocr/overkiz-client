@@ -22,6 +22,7 @@ const endpoints = {
         'czduc0RZZXdWbjVGbVV4UmlYN1pVSUM3ZFI4YTphSDEzOXZmbzA1ZGdqeDJkSFVSQkFTbmhCRW9h',
     ),
     rexel: new ApiEndpoint('https://ha112-1.overkiz.com/enduser-mobile-web/enduserAPI'),
+    flexom: new ApiEndpoint('https://ha108-1.overkiz.com/enduser-mobile-web/enduserAPI'),
     debug: new ApiEndpoint('https://dev.duboc.pro/api/overkiz'),
 };
 
