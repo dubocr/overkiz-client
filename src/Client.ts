@@ -3,25 +3,31 @@ import { Device, ExecutionState, Location } from '.';
 import ActionGroup from './models/ActionGroup';
 import { State } from './models/Device';
 import Execution, { ExecutionError } from './models/Execution';
-import RestClient from './RestClient';
+import RestClient, { ApiEndpoint, JWTEndpoint } from './RestClient';
 
 export let logger;
 
 const EXEC_TIMEOUT = 2 * 60 * 1000;
 
-enum ApiEndpoint {
-    'tahoma' = 'https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI',
-    'tahoma_switch' = 'https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI',
-    'connexoon' = 'https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI',
-    'connexoon_rts' = 'https://ha201-1.overkiz.com/enduser-mobile-web/enduserAPI',
-    'cozytouch' = 'https://ha110-1.overkiz.com/enduser-mobile-web/enduserAPI',
-    'rexel' = 'https://ha112-1.overkiz.com/enduser-mobile-web/enduserAPI',
-    'debug' = 'https://dev.duboc.pro/api/overkiz'
-}
+
+const endpoints = {
+    tahoma: new ApiEndpoint('https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI'),
+    tahoma_switch: new ApiEndpoint('https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI'),
+    connexoon: new ApiEndpoint('https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI'),
+    connexoon_rts: new ApiEndpoint('https://ha201-1.overkiz.com/enduser-mobile-web/enduserAPI'),
+    cozytouch: new JWTEndpoint(
+        'https://ha110-1.overkiz.com/enduser-mobile-web/enduserAPI',
+        'https://api.groupe-atlantic.com/token',
+        'https://api.groupe-atlantic.com/gacoma/gacomawcfservice/accounts/jwt',
+        'czduc0RZZXdWbjVGbVV4UmlYN1pVSUM3ZFI4YTphSDEzOXZmbzA1ZGdqeDJkSFVSQkFTbmhCRW9h',
+    ),
+    rexel: new ApiEndpoint('https://ha112-1.overkiz.com/enduser-mobile-web/enduserAPI'),
+    flexom: new ApiEndpoint('https://ha108-1.overkiz.com/enduser-mobile-web/enduserAPI'),
+    debug: new ApiEndpoint('https://dev.duboc.pro/api/overkiz'),
+};
 
 export default class OverkizClient extends EventEmitter {
     private restClient: RestClient;
-    private apiEndpoint: string;
 
     private service: string;
 
@@ -55,11 +61,11 @@ export default class OverkizClient extends EventEmitter {
         if (!config['user'] || !config['password']) {
             throw new Error('You must provide credentials (user / password)');
         }
-        this.apiEndpoint = ApiEndpoint[this.service.toLowerCase()];
-        if (!this.apiEndpoint) {
+        const apiEndpoint = endpoints[this.service.toLowerCase()];
+        if (!apiEndpoint) {
             throw new Error('Invalid service name: ' + this.service);
         }
-        this.restClient = new RestClient(config['user'], config['password'], this.apiEndpoint);
+        this.restClient = new RestClient(config['user'], config['password'], apiEndpoint);
 
 
         this.listenerId = null;

@@ -3,18 +3,75 @@ import { EventEmitter } from 'events';
 import { URLSearchParams } from 'url';
 import { logger } from './Client';
 
-const API_LOCKDOWN_DELAY = 6;
+interface AuthProvider {
+    getLoginParams(user: string, password: string): Promise<URLSearchParams>;
+}
+
+export class ApiEndpoint implements AuthProvider {
+    constructor(public apiUrl: string) {
+    }
+
+    getApiUrl(): string {
+        return this.apiUrl;
+    }
+
+    async getLoginParams(user: string, password: string): Promise<URLSearchParams> {
+        const params = new URLSearchParams();
+        params.append('userId', user);
+        params.append('userPassword', password);
+        return params;
+    }
+}
+
+export class JWTEndpoint extends ApiEndpoint {
+    private http: AxiosInstance;
+    
+    constructor(apiUrl: string, private accessTokenUrl: string, private jwtUrl: string, private accessTokenBasic: string) {
+        super(apiUrl);
+        this.http = axios.create();
+    }
+
+    async getLoginParams(user: string, password: string): Promise<URLSearchParams> {
+        const accesToken = await this.getAccessToken(user, password);
+        const jwt = await this.getJwt(accesToken);
+
+        const params = new URLSearchParams();
+        params.append('jwt', jwt);
+        return params;
+    }
+
+    private async getAccessToken(user: string, password: string) {
+        const headers = {
+            'Authorization': `Basic ${this.accessTokenBasic}`,
+        };
+        const params = new URLSearchParams();
+        params.append('grant_type', 'password');
+        params.append('username', user);
+        params.append('password', password);
+        const result = await this.http.post(this.accessTokenUrl, params, {headers});
+        return result.data.access_token;
+    }
+
+    public async getJwt(token: string) {
+        const headers = {
+            'Authorization': `Bearer ${token}`,
+        };
+        const result = await this.http.get(this.jwtUrl, {headers});
+        return result.data.trim();
+    }
+}
 
 export default class RestClient extends EventEmitter {
     private http: AxiosInstance;
     private authRequest?: Promise<unknown>;
     private isLogged = false;
     private badCredentials = false;
+    private lockdownDelay = 60;
 
-    constructor(private readonly user: string, private readonly password: string, private readonly baseUrl: string) {
+    constructor(private readonly user: string, private readonly password: string, private readonly endpoint: ApiEndpoint) {
         super();
         this.http = axios.create({
-            baseURL: this.baseUrl,
+            baseURL: this.endpoint.apiUrl,
             withCredentials: true,
         });
 
@@ -64,12 +121,11 @@ export default class RestClient extends EventEmitter {
             request = this.http(options);
         } else {
             if (this.authRequest === undefined) {
-                const params = new URLSearchParams();
-                params.append('userId', this.user);
-                params.append('userPassword', this.password);
-                this.authRequest = this.http.post('/login', params)
+                this.authRequest = this.endpoint.getLoginParams(this.user, this.password)
+                    .then((params) => this.http.post('/login', params))
                     .then((response) => {
                         this.isLogged = true;
+                        this.lockdownDelay = 60;
                         if (response.headers['set-cookie']) {
                             this.http.defaults.headers.common['Cookie'] = response.headers['set-cookie'];
                         }
@@ -95,13 +151,14 @@ export default class RestClient extends EventEmitter {
                                 this.badCredentials = true;
                                 logger.warn(
                                     'API client will be locked for '
-                                    + API_LOCKDOWN_DELAY
+                                    + this.lockdownDelay
                                     + ' hours because of bad credentials or temporary service outage.'
                                     + ' You can restart plugin to force login retry.',
                                 );
                                 setTimeout(() => {
                                     this.badCredentials = false;
-                                }, API_LOCKDOWN_DELAY * 60 * 60 * 1000);
+                                    this.lockdownDelay *= 2;
+                                }, this.lockdownDelay * 1000);
                             }
                             throw error.response.data.error;
                         }
