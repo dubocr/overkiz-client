@@ -144,7 +144,7 @@ export default class OverkizClient extends EventEmitter {
     }
 
     async refreshAllStates() {
-        await this.restClient.post('/setup/devices/states/refresh');
+        await this.restClient.post('/setup/devices/states/refresh', {});
         await this.delay(10 * 1000); // Wait for device radio refresh
         const devices = await this.getDevices();
         devices.forEach((fresh) => {
