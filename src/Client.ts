@@ -125,23 +125,7 @@ export default class OverkizClient extends EventEmitter {
         devices.forEach((freshDevice) => {
             const device = this.devices[freshDevice.deviceURL];
             if (device) {
-                const updated: State[] = [];
-                freshDevice.states.forEach(freshState => {
-                    const state: State | null = device.getState(freshState.name);
-                    if (state) {
-                        // Ignore state type 10 and 11 (object and array of object)
-                        if(state.type !== 10 && state.type !== 11 && state.value !== freshState.value) {
-                            state.value = freshState.value;
-                            updated.push(freshState);
-                        }
-                    } else {
-                        device.states.push(freshState);
-                        updated.push(freshState);
-                    }
-                });
-                if(updated.length > 0) {
-                    device.emit('states', updated);
-                }
+                device.updateStates(freshDevice.states);
             }
         });
     }
@@ -303,15 +287,7 @@ export default class OverkizClient extends EventEmitter {
                 //logger.log(event);
                 if (event.name === 'DeviceStateChangedEvent') {
                     const device = this.devices[event.deviceURL];
-                    event.deviceStates.forEach(freshState => {
-                        const state = device.getState(freshState.name);
-                        if (state) {
-                            state.value = freshState.value;
-                        } else {
-                            device.states.push(freshState);
-                        }
-                    });
-                    device.emit('states', event.deviceStates);
+                    device.updateStates(event.deviceStates);
                 } else if (event.name === 'ExecutionStateChangedEvent') {
                     const execution = this.executionPool[event.execId];
                     if (execution) {

@@ -27,6 +27,9 @@ export default class Device extends EventEmitter {
     controllableName = '';
     states: Array<State> = [];
 
+    pendingUpdate = new Map<string, State>();
+    pendingUpdateTimer;
+
     public definition: Definition = { type: '', commands: [] };
 
     public parent: Device | undefined;
@@ -128,6 +131,32 @@ export default class Device extends EventEmitter {
             }
         }
         return null;
+    }
+
+    updateStates(states: State[]) {
+        if(this.pendingUpdateTimer !== null) {
+            clearTimeout(this.pendingUpdateTimer);
+        }
+        for(const newState of states) {
+            const state = this.getState(newState.name);
+            if(state) {
+                // Ignore state type 10 and 11 (object and array of object)
+                if(state.type !== 10 && state.type !== 11 && state.value !== newState.value) {
+                    state.value = newState.value;
+                    this.pendingUpdate.set(newState.name, newState);
+                }
+            } else {
+                this.states.push(newState);
+                this.pendingUpdate.set(newState.name, newState);
+            }
+        }
+        this.pendingUpdateTimer = setTimeout(() => {
+            this.pendingUpdateTimer = null;
+            if(this.pendingUpdate.size > 0) {
+                this.emit('states', Array.from(this.pendingUpdate.values()));
+                this.pendingUpdate = new Map();
+            }
+        }, 100);
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

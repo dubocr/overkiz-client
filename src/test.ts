@@ -10,8 +10,8 @@ async function main() {
         service: process.env.SERVICE,
         user: process.env.USERNAME,
         password: process.env.PASSWORD,
-        pollingPeriod: 10,
-        refreshPeriod: 30,
+        pollingPeriod: 30,
+        refreshPeriod: 60,
     });
 
     const devices = await client.getDevices();
