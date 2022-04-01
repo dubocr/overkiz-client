@@ -88,7 +88,7 @@ export default class RestClient extends EventEmitter {
         });
     }
 
-    public post(url: string, data?: Record<string, unknown>) {
+    public post(url: string, data?: Record<string, unknown> | Array<string>) {
         return this.request({
             method: 'post',
             url: url,

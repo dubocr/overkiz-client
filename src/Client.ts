@@ -32,6 +32,7 @@ export default class OverkizClient extends EventEmitter {
     private service: string;
 
     private fetchLock = false;
+    private refreshLock = false;
     private executionPool: Execution[] = [];
 
     private devices: Array<Device> = new Array<Device>();
@@ -119,6 +120,32 @@ export default class OverkizClient extends EventEmitter {
         return physicalDevices;
     }
 
+    public async refreshDevices() {
+        const devices = await this.getDevices();
+        devices.forEach((freshDevice) => {
+            const device = this.devices[freshDevice.deviceURL];
+            if (device) {
+                const updated: State[] = [];
+                freshDevice.states.forEach(freshState => {
+                    const state: State | null = device.getState(freshState.name);
+                    if (state) {
+                        // Ignore state type 10 and 11 (object and array of object)
+                        if(state.type !== 10 && state.type !== 11 && state.value !== freshState.value) {
+                            state.value = freshState.value;
+                            updated.push(freshState);
+                        }
+                    } else {
+                        device.states.push(freshState);
+                        updated.push(freshState);
+                    }
+                });
+                if(updated.length > 0) {
+                    device.emit('states', updated);
+                }
+            }
+        });
+    }
+
     public async getSetupLocation(): Promise<Location> {
         return await this.restClient.get('/setup/location') as Location;
     }
@@ -143,30 +170,21 @@ export default class OverkizClient extends EventEmitter {
         }
     }
 
-    async refreshAllStates() {
-        await this.restClient.post('/setup/devices/states/refresh', {});
-        await this.delay(10 * 1000); // Wait for device radio refresh
-        const devices = await this.getDevices();
-        devices.forEach((fresh) => {
-            const device = this.devices[fresh.deviceURL];
-            if (device) {
-                device.states = fresh.states;
-                device.emit('states', fresh.states);
+    async refreshAllStates(devices: Array<string> = []) {
+        this.refreshLock = true;
+        await this.restClient.post('/setup/devices/states/refresh', devices);
+
+        // In case 'RefreshAllDevicesStatesCompletedEvent' was not triggered avec 15 sec, refresh manually
+        setTimeout(() => {
+            if(this.refreshLock) {
+                this.refreshLock = false;
+                this.refreshDevices();
             }
-        });
+        }, 30 * 1000);
     }
 
     async refreshDeviceStates(deviceURL: string) {
         await this.restClient.post('/setup/devices/' + encodeURIComponent(deviceURL) + '/states/refresh');
-        if (this.eventPollingPeriod > this.execPollingPeriod || this.listenerId === null) {
-            await this.delay(2 * 1000); // Wait for device radio refresh
-            const states = await this.getStates(deviceURL);
-            const device = this.devices[deviceURL];
-            if (device) {
-                device.states = states;
-                device.emit('states', states);
-            }
-        }
     }
 
     async getState(deviceURL, state) {
@@ -285,15 +303,16 @@ export default class OverkizClient extends EventEmitter {
                 //logger.log(event);
                 if (event.name === 'DeviceStateChangedEvent') {
                     const device = this.devices[event.deviceURL];
-                    event.deviceStates.forEach(fresh => {
-                        const state = device.getState(fresh.name);
+                    event.deviceStates.forEach(freshState => {
+                        const state = device.getState(freshState.name);
                         if (state) {
-                            state.value = fresh.value;
+                            state.value = freshState.value;
+                        } else {
+                            device.states.push(freshState);
                         }
                     });
                     device.emit('states', event.deviceStates);
                 } else if (event.name === 'ExecutionStateChangedEvent') {
-                    //logger.log(event);
                     const execution = this.executionPool[event.execId];
                     if (execution) {
                         execution.onStateUpdate(event.newState, event);
@@ -302,6 +321,10 @@ export default class OverkizClient extends EventEmitter {
                             delete this.executionPool[event.execId];
                         }
                     }
+                } else if (event.name === 'RefreshAllDevicesStatesCompletedEvent') {
+                    this.refreshLock = false;
+                    logger.debug('Refresh all states completed');
+                    this.refreshDevices();
                 }
             }
         } catch (error) {

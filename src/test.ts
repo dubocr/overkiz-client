@@ -10,11 +10,10 @@ async function main() {
         service: process.env.SERVICE,
         user: process.env.USERNAME,
         password: process.env.PASSWORD,
-        pollingPeriod: 0,
+        pollingPeriod: 10,
         refreshPeriod: 30,
     });
 
-    //await client.refreshStates();
     const devices = await client.getDevices();
     console.log(`${devices.length} devices`);
     devices.forEach((device: Device) => {
@@ -28,8 +27,17 @@ async function main() {
 
     process.openStdin().addListener('data', async (d) => {
         const data = d.toString().trim();
-        console.log('Input: ' + data);
-        await client.refreshDeviceStates(data);
+        switch(data) {
+            case 'a': 
+                //await client.refreshStates();
+                await client.refreshAllStates();
+                break;
+            case '': break;
+            default: 
+                console.log('Input: ' + data);
+                await client.refreshDeviceStates(data);
+                break;
+        }
     });
 }
 main().catch(console.error);

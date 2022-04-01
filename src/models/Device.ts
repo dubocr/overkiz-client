@@ -119,7 +119,7 @@ export default class Device extends EventEmitter {
         this.sensors.push(device);
     }
 
-    getState(stateName) {
+    getState(stateName): State | null {
         if (this.states !== null) {
             for (const state of this.states) {
                 if (state.name === stateName) {
