@@ -1,7 +1,7 @@
 {
   "name": "overkiz-client",
   "displayName": "Overkiz API Client",
-  "version": "0.1.71",
+  "version": "0.1.72",
   "description": "Overkiz API client plugin for Node",
   "author": "Romain DUBOC",
   "license": "Apache-2.0",
