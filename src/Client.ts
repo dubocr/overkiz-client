@@ -13,6 +13,7 @@ const EXEC_TIMEOUT = 2 * 60 * 1000;
 const endpoints = {
     tahoma: new ApiEndpoint('https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI'),
     tahoma_switch: new ApiEndpoint('https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI'),
+    tahoma_usa: new ApiEndpoint('https://ha401-1.overkiz.com/enduser-mobile-web/enduserAPI'),
     connexoon: new ApiEndpoint('https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI'),
     connexoon_rts: new ApiEndpoint('https://ha201-1.overkiz.com/enduser-mobile-web/enduserAPI'),
     cozytouch: new JWTEndpoint(
