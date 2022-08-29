@@ -57,6 +57,7 @@ export class JWTEndpoint extends ApiEndpoint {
             'Authorization': `Bearer ${token}`,
         };
         const result = await this.http.get(this.jwtUrl, {headers});
+        console.log(result.data.trim());
         return result.data.trim();
     }
 }

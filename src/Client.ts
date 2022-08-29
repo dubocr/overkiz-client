@@ -1,9 +1,10 @@
 import { EventEmitter } from 'events';
-import { Device, ExecutionState, Location } from '.';
+import Device from './models/Device';
 import ActionGroup from './models/ActionGroup';
 import { State } from './models/Device';
-import Execution, { ExecutionError } from './models/Execution';
+import Execution, { ExecutionState, ExecutionError } from './models/Execution';
 import RestClient, { ApiEndpoint, JWTEndpoint } from './RestClient';
+import Location from './models/Location';
 
 export let logger;
 
@@ -303,7 +304,7 @@ export default class OverkizClient extends EventEmitter {
                     this.refreshDevices();
                 }
             }
-        } catch (error) {
+        } catch (error: any) {
             logger.error('Polling error -', error);
             if (this.listenerId === null && (error.includes('NOT_REGISTERED') || error.includes('UNSPECIFIED_ERROR'))) {
                 this.listenerId = null;

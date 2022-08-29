@@ -1,7 +1,7 @@
 /* eslint-disable no-console */
 import OverkizClient from './Client';
 import dotenv from 'dotenv';
-import { Device, State } from '.';
+import { default as Device, State } from './models/Device';
 
 dotenv.config();
 
