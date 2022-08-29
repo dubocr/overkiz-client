@@ -5,6 +5,7 @@
   "description": "Overkiz API client plugin for Node",
   "author": "Romain DUBOC",
   "license": "Apache-2.0",
+  "type": "module",
   "repository": {
     "type": "git",
     "url": "git://github.com/dubocr/overkiz-client.git"
@@ -18,7 +19,7 @@
   "main": "dist/index.js",
   "scripts": {
     "lint": "eslint src/**.ts",
-    "test": "npm run build && node ./dist/test.js",
+    "test": "npm run build && node --es-module-specifier-resolution=node ./dist/test.js",
     "clean": "rimraf ./dist",
     "build": "rimraf ./dist && tsc",
     "prepublishOnly": "npm run lint && npm run build && npm version patch --m 'Release %s'",
@@ -30,7 +31,7 @@
   ],
   "homepage": "https://github.com/dubocr/overkiz-client#readme",
   "dependencies": {
-    "axios": "^0.21.1",
+    "axios": "^0.27.2",
     "events": "^3.3.0",
     "uuid": "^8.3.2"
   },
@@ -42,7 +43,7 @@
     "eslint": "^7.30.0",
     "nodemon": "^2.0.12",
     "rimraf": "^3.0.2",
-    "ts-node": "^8.10.2",
-    "typescript": "^3.9.10"
+    "ts-node": "^10.9.1",
+    "typescript": "^4.8.2"
   }
 }

@@ -1,12 +1,12 @@
 /* eslint-disable no-console */
-import OverkizClient from './Client';
 import dotenv from 'dotenv';
+import { Client } from './index';
 import { default as Device, State } from './models/Device';
 
 dotenv.config();
 
 async function main() {
-    const client = new OverkizClient(console, {
+    const client = new Client(console, {
         service: process.env.SERVICE,
         user: process.env.USERNAME,
         password: process.env.PASSWORD,

@@ -1,7 +1,8 @@
 import axios, { AxiosInstance } from 'axios';
 import { EventEmitter } from 'events';
-import { URLSearchParams } from 'url';
 import { logger } from './Client';
+
+let httpClient;
 
 interface AuthProvider {
     getLoginParams(user: string, password: string): Promise<URLSearchParams>;
@@ -24,11 +25,8 @@ export class ApiEndpoint implements AuthProvider {
 }
 
 export class JWTEndpoint extends ApiEndpoint {
-    private http: AxiosInstance;
-    
-    constructor(apiUrl: string, private accessTokenUrl: string, private jwtUrl: string, private accessTokenBasic: string) {
+    constructor(apiUrl: string, public accessTokenUrl: string, public jwtUrl: string, private accessTokenBasic: string) {
         super(apiUrl);
-        this.http = axios.create();
     }
 
     async getLoginParams(user: string, password: string): Promise<URLSearchParams> {
@@ -48,7 +46,10 @@ export class JWTEndpoint extends ApiEndpoint {
         params.append('grant_type', 'password');
         params.append('username', user);
         params.append('password', password);
-        const result = await this.http.post(this.accessTokenUrl, params, {headers});
+        const result = await httpClient.post(this.accessTokenUrl, params, {headers});
+        if(!result.data.access_token) {
+            throw new Error('Invalid credentials');
+        }
         return result.data.access_token;
     }
 
@@ -56,7 +57,7 @@ export class JWTEndpoint extends ApiEndpoint {
         const headers = {
             'Authorization': `Bearer ${token}`,
         };
-        const result = await this.http.get(this.jwtUrl, {headers});
+        const result = await httpClient.get(this.jwtUrl, {headers});
         console.log(result.data.trim());
         return result.data.trim();
     }
@@ -69,17 +70,34 @@ export default class RestClient extends EventEmitter {
     private badCredentials = false;
     private lockdownDelay = 60;
 
-    constructor(private readonly user: string, private readonly password: string, private readonly endpoint: ApiEndpoint) {
+    constructor(
+        private readonly user: string,
+        private readonly password: string,
+        private readonly endpoint: ApiEndpoint,
+        readonly proxy: string | null,
+    ) {
         super();
+
         this.http = axios.create({
             baseURL: this.endpoint.apiUrl,
             withCredentials: true,
         });
 
-        this.http.interceptors.request.use(request => {
+        httpClient = axios.create();
+
+        const interceptor = (request) => {
+            if(proxy) {
+                request.url = proxy
+                    + '?endpoint=' + encodeURI(request.baseURL ?? '')
+                    + '&path=' + encodeURI(request.url)
+                    + '&method=' + request.method?.toUpperCase();
+            }
             logger.debug(request.method?.toUpperCase(), request.url);
             return request;
-        });
+        };
+
+        this.http.interceptors.request.use(interceptor);
+        httpClient.interceptors.request.use(interceptor);
     }
 
     public get(url: string) {
@@ -128,7 +146,10 @@ export default class RestClient extends EventEmitter {
                         this.isLogged = true;
                         this.lockdownDelay = 60;
                         if (response.headers['set-cookie']) {
-                            this.http.defaults.headers.common['Cookie'] = response.headers['set-cookie'];
+                            const cookie = response.headers['set-cookie']?.find((cookie) => cookie.startsWith('JSESSIONID'))?.split(';')[0];
+                            if(cookie) {
+                                this.http.defaults.headers.common['Cookie'] = cookie;
+                            }
                         }
                         this.emit('connect');
                     }).finally(() => {

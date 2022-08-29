@@ -5,6 +5,7 @@ import { State } from './models/Device';
 import Execution, { ExecutionState, ExecutionError } from './models/Execution';
 import RestClient, { ApiEndpoint, JWTEndpoint } from './RestClient';
 import Location from './models/Location';
+import axios from 'axios';
 
 export let logger;
 
@@ -67,7 +68,7 @@ export default class OverkizClient extends EventEmitter {
         if (!apiEndpoint) {
             throw new Error('Invalid service name: ' + this.service);
         }
-        this.restClient = new RestClient(config['user'], config['password'], apiEndpoint);
+        this.restClient = new RestClient(config['user'], config['password'], apiEndpoint, config['proxy']);
 
 
         this.listenerId = null;
