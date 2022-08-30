@@ -87,7 +87,7 @@ export default class RestClient extends EventEmitter {
         httpClient = axios.create();
 
         const interceptor = (request) => {
-            if(proxy) {
+            if(proxy && !request.baseURL?.startsWith('https://gateway-')) {
                 request.url = proxy
                     + '?endpoint=' + encodeURI(request.baseURL ?? '')
                     + '&path=' + encodeURI(request.url)
