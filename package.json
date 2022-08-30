@@ -5,7 +5,6 @@
   "description": "Overkiz API client plugin for Node",
   "author": "Romain DUBOC",
   "license": "Apache-2.0",
-  "type": "module",
   "repository": {
     "type": "git",
     "url": "git://github.com/dubocr/overkiz-client.git"

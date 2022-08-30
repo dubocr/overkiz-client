@@ -146,9 +146,11 @@ export default class RestClient extends EventEmitter {
     }
 
     public disableLocalApi() {
-        delete this.http.defaults.headers['Autorization'];
-        this.http.defaults.baseURL = this.endpoint.apiUrl;
-        logger.debug('Local API disabled');
+        if(this.http.defaults.baseURL !== this.endpoint.apiUrl) {
+            delete this.http.defaults.headers['Autorization'];
+            this.http.defaults.baseURL = this.endpoint.apiUrl;
+            logger.debug('Local API disabled');
+        }
     }
 
     private request(options) {
