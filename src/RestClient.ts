@@ -75,6 +75,7 @@ export default class RestClient extends EventEmitter {
         private readonly password: string,
         private readonly endpoint: ApiEndpoint,
         readonly proxy: string | null,
+        private readonly gatewayPin: string,
     ) {
         super();
 
@@ -130,6 +131,26 @@ export default class RestClient extends EventEmitter {
         });
     }
 
+    public async enableLocalApi() {
+        const data = await this.get('config/' + this.gatewayPin + '/local/tokens/generate');
+        logger.debug(data);
+        const resp = await this.post('config/' + this.gatewayPin + '/local/tokens', {
+            'label': 'Homebridge-tahoma local API',
+            'token': data.token,
+            'scope': 'devmode',
+        });
+        logger.debug(resp);
+        this.http.defaults.headers['Autorization'] = 'Bearer ' + data.token;
+        this.http.defaults.baseURL = 'https://gateway-' + this.gatewayPin + ':8443/enduser-mobile-web/1/enduserAPI/';
+        logger.debug('Local API enabled');
+    }
+
+    public disableLocalApi() {
+        delete this.http.defaults.headers['Autorization'];
+        this.http.defaults.baseURL = this.endpoint.apiUrl;
+        logger.debug('Local API disabled');
+    }
+
     private request(options) {
         if (this.badCredentials) {
             throw 'API client locked. Please check your credentials then restart.\n'
@@ -140,9 +161,13 @@ export default class RestClient extends EventEmitter {
             request = this.http(options);
         } else {
             if (this.authRequest === undefined) {
-                this.authRequest = this.endpoint.getLoginParams(this.user, this.password)
+                if(this.gatewayPin) {
+                    this.disableLocalApi();
+                }
+                this.authRequest = this.endpoint
+                    .getLoginParams(this.user, this.password)
                     .then((params) => this.http.post('/login', params))
-                    .then((response) => {
+                    .then(async (response) => {
                         this.isLogged = true;
                         this.lockdownDelay = 60;
                         if (response.headers['set-cookie']) {
@@ -150,6 +175,9 @@ export default class RestClient extends EventEmitter {
                             if(cookie) {
                                 this.http.defaults.headers.common['Cookie'] = cookie;
                             }
+                        }
+                        if(this.gatewayPin) {
+                            await this.enableLocalApi();
                         }
                         this.emit('connect');
                     }).finally(() => {

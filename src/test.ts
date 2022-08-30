@@ -10,6 +10,7 @@ async function main() {
         service: process.env.SERVICE,
         user: process.env.USERNAME,
         password: process.env.PASSWORD,
+        gatewayPin: process.env.GATEWAY,
         pollingPeriod: 30,
         refreshPeriod: 60,
     });
