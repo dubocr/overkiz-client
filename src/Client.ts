@@ -3,7 +3,7 @@ import Device from './models/Device';
 import ActionGroup from './models/ActionGroup';
 import { State } from './models/Device';
 import Execution, { ExecutionState, ExecutionError } from './models/Execution';
-import RestClient, { ApiEndpoint, JWTEndpoint } from './RestClient';
+import RestClient, { ApiEndpoint, JWTApiEndpoint, LocalApiEndpoint } from './RestClient';
 import Location from './models/Location';
 
 export let logger;
@@ -12,11 +12,12 @@ const EXEC_TIMEOUT = 2 * 60 * 1000;
 
 
 const endpoints = {
+    local: new LocalApiEndpoint(),
     tahoma: new ApiEndpoint('https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI'),
     tahoma_switch: new ApiEndpoint('https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI'),
     connexoon: new ApiEndpoint('https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI'),
     connexoon_rts: new ApiEndpoint('https://ha201-1.overkiz.com/enduser-mobile-web/enduserAPI'),
-    cozytouch: new JWTEndpoint(
+    cozytouch: new JWTApiEndpoint(
         'https://ha110-1.overkiz.com/enduser-mobile-web/enduserAPI',
         'https://api.groupe-atlantic.com/token',
         'https://api.groupe-atlantic.com/gacoma/gacomawcfservice/accounts/jwt',
@@ -67,7 +68,7 @@ export default class OverkizClient extends EventEmitter {
         if (!apiEndpoint) {
             throw new Error('Invalid service name: ' + this.service);
         }
-        this.restClient = new RestClient(config['user'], config['password'], apiEndpoint, config['proxy'], config['gatewayPin']);
+        this.restClient = new RestClient(config['user'], config['password'], apiEndpoint, config['proxy']);
 
 
         this.listenerId = null;
@@ -316,5 +317,21 @@ export default class OverkizClient extends EventEmitter {
 
     private async delay(duration) {
         return new Promise(resolve => setTimeout(resolve, duration));
+    }
+
+    public async createLocalApiToken(gatewayPin: string) {
+        const data = await this.restClient.get('config/' + gatewayPin + '/local/tokens/generate');
+        logger.debug(data);
+        const resp = await this.restClient.post('config/' + gatewayPin + '/local/tokens', {
+            'label': 'Homebridge-tahoma local API',
+            'token': data.token,
+            'scope': 'devmode',
+        });
+        logger.debug(resp);
+        return data.token;
+    }
+
+    public async getLocalApiTokens(gatewayPin: string) {
+        return await this.restClient.get('config/' + gatewayPin + '/local/tokens/devmode');
     }
 }

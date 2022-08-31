@@ -1,19 +1,35 @@
-import axios, { AxiosInstance } from 'axios';
+import axios, { AxiosInstance, AxiosPromise } from 'axios';
 import { EventEmitter } from 'events';
 import { logger } from './Client';
-
-let httpClient;
+import https from 'https';
 
 interface AuthProvider {
-    getLoginParams(user: string, password: string): Promise<URLSearchParams>;
+    authenticate(user: string, password: string): Promise<AxiosInstance>;
+}
+
+export class LocalApiEndpoint implements AuthProvider {
+
+    async authenticate(user: string, password: string): Promise<AxiosInstance> {
+        const ipRegExp = new RegExp(/^(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}$/gm);
+        const domain = user.match(ipRegExp) ? user : 'gateway-' + user;
+        return axios.create({
+            baseURL: 'https://' + domain + ':8443/enduser-mobile-web/1/enduserAPI/',
+            
+            headers: {
+                'Authorization': 'Bearer ' + password,
+            },
+            httpsAgent: new https.Agent({  
+                rejectUnauthorized: false,
+            }),
+        });
+    }
 }
 
 export class ApiEndpoint implements AuthProvider {
-    constructor(public apiUrl: string) {
-    }
+    private badCredentials = false;
+    private lockdownDelay = 60;
 
-    getApiUrl(): string {
-        return this.apiUrl;
+    constructor(public apiUrl: string) {
     }
 
     async getLoginParams(user: string, password: string): Promise<URLSearchParams> {
@@ -22,9 +38,50 @@ export class ApiEndpoint implements AuthProvider {
         params.append('userPassword', password);
         return params;
     }
+
+    async authenticate(user: string, password: string): Promise<AxiosInstance> {
+        if (this.badCredentials) {
+            throw 'API client locked. Please check your credentials then restart.\n'
+            + 'If your credentials are valid, please wait some hours to be unbanned';
+        }
+        try {
+            const params = await this.getLoginParams(user, password);
+            const response = await axios.post(this.apiUrl + '/login', params);
+            if (response.headers['set-cookie']) {
+                const cookie = response.headers['set-cookie']?.find((cookie) => cookie.startsWith('JSESSIONID'))?.split(';')[0];
+                if(cookie) {
+                    this.lockdownDelay = 60;
+                    return axios.create({
+                        baseURL: this.apiUrl,
+                        withCredentials: true,
+                        headers: {
+                            'Cookie': cookie,
+                        },
+                    });
+                }
+            }
+        } catch(error: any) {
+            //error.response.data.errorCode === 'AUTHENTICATION_ERROR'
+            if(error.response.status >= 400 && error.response.status < 500) {
+                this.badCredentials = true;
+                logger.warn(
+                    'API client will be locked for '
+                    + this.lockdownDelay
+                    + ' seconds because of bad credentials or temporary service outage.'
+                    + ' You can restart plugin to force login retry.',
+                );
+                setTimeout(() => {
+                    this.badCredentials = false;
+                    this.lockdownDelay *= 2;
+                }, this.lockdownDelay * 1000);
+            }
+            throw error;
+        }
+        throw new Error('Enable to authenticate');
+    }
 }
 
-export class JWTEndpoint extends ApiEndpoint {
+export class JWTApiEndpoint extends ApiEndpoint {
     constructor(apiUrl: string, public accessTokenUrl: string, public jwtUrl: string, private accessTokenBasic: string) {
         super(apiUrl);
     }
@@ -46,7 +103,7 @@ export class JWTEndpoint extends ApiEndpoint {
         params.append('grant_type', 'password');
         params.append('username', user);
         params.append('password', password);
-        const result = await httpClient.post(this.accessTokenUrl, params, {headers});
+        const result = await axios.post(this.accessTokenUrl, params, {headers});
         if(!result.data.access_token) {
             throw new Error('Invalid credentials');
         }
@@ -57,48 +114,34 @@ export class JWTEndpoint extends ApiEndpoint {
         const headers = {
             'Authorization': `Bearer ${token}`,
         };
-        const result = await httpClient.get(this.jwtUrl, {headers});
-        console.log(result.data.trim());
+        const result = await axios.get(this.jwtUrl, {headers});
+        logger.debug('JWT Token: ' + result.data.trim());
         return result.data.trim();
     }
 }
 
 export default class RestClient extends EventEmitter {
-    private http: AxiosInstance;
-    private authRequest?: Promise<unknown>;
-    private isLogged = false;
-    private badCredentials = false;
-    private lockdownDelay = 60;
+    private httpClient: AxiosInstance | null = null;
+    private authRequest?: Promise<AxiosInstance>;
 
     constructor(
         private readonly user: string,
         private readonly password: string,
         private readonly endpoint: ApiEndpoint,
-        readonly proxy: string | null,
-        private readonly gatewayPin: string,
+        private readonly proxy: string | null,
     ) {
         super();
+    }
 
-        this.http = axios.create({
-            baseURL: this.endpoint.apiUrl,
-            withCredentials: true,
-        });
-
-        httpClient = axios.create();
-
-        const interceptor = (request) => {
-            if(proxy && !request.baseURL?.startsWith('https://gateway-')) {
-                request.url = proxy
-                    + '?endpoint=' + encodeURI(request.baseURL ?? '')
-                    + '&path=' + encodeURI(request.url)
-                    + '&method=' + request.method?.toUpperCase();
-            }
-            logger.debug(request.method?.toUpperCase(), request.url);
-            return request;
-        };
-
-        this.http.interceptors.request.use(interceptor);
-        httpClient.interceptors.request.use(interceptor);
+    private onRequest(request) {
+        if(this.proxy) {
+            request.url = this.proxy
+                + '?endpoint=' + encodeURI(request.baseURL ?? '')
+                + '&path=' + encodeURI(request.url)
+                + '&method=' + request.method?.toUpperCase();
+        }
+        logger.debug(request.method?.toUpperCase(), request.url);
+        return request;
     }
 
     public get(url: string) {
@@ -131,102 +174,47 @@ export default class RestClient extends EventEmitter {
         });
     }
 
-    public async enableLocalApi() {
-        const data = await this.get('config/' + this.gatewayPin + '/local/tokens/generate');
-        logger.debug(data);
-        const resp = await this.post('config/' + this.gatewayPin + '/local/tokens', {
-            'label': 'Homebridge-tahoma local API',
-            'token': data.token,
-            'scope': 'devmode',
-        });
-        logger.debug(resp);
-        this.http.defaults.headers['Autorization'] = 'Bearer ' + data.token;
-        this.http.defaults.baseURL = 'https://gateway-' + this.gatewayPin + ':8443/enduser-mobile-web/1/enduserAPI/';
-        logger.debug('Local API enabled');
-    }
-
-    public disableLocalApi() {
-        if(this.http.defaults.baseURL !== this.endpoint.apiUrl) {
-            delete this.http.defaults.headers['Autorization'];
-            this.http.defaults.baseURL = this.endpoint.apiUrl;
-            logger.debug('Local API disabled');
-        }
-    }
-
     private request(options) {
-        if (this.badCredentials) {
-            throw 'API client locked. Please check your credentials then restart.\n'
-            + 'If your credentials are valid, please wait some hours to be unbanned';
-        }
-        let request;
-        if (this.isLogged) {
-            request = this.http(options);
+        let request: AxiosPromise<any>;
+        if (this.httpClient) {
+            request = this.httpClient(options);
         } else {
             if (this.authRequest === undefined) {
-                if(this.gatewayPin) {
-                    this.disableLocalApi();
-                }
                 this.authRequest = this.endpoint
-                    .getLoginParams(this.user, this.password)
-                    .then((params) => this.http.post('/login', params))
-                    .then(async (response) => {
-                        this.isLogged = true;
-                        this.lockdownDelay = 60;
-                        if (response.headers['set-cookie']) {
-                            const cookie = response.headers['set-cookie']?.find((cookie) => cookie.startsWith('JSESSIONID'))?.split(';')[0];
-                            if(cookie) {
-                                this.http.defaults.headers.common['Cookie'] = cookie;
-                            }
-                        }
-                        if(this.gatewayPin) {
-                            await this.enableLocalApi();
-                        }
+                    .authenticate(this.user, this.password)
+                    .then((client: AxiosInstance) => {
+                        client.interceptors.request.use(this.onRequest.bind(this));
+                        this.httpClient = client;
                         this.emit('connect');
+                        return client;
                     }).finally(() => {
                         this.authRequest = undefined;
                     });
             }
-            request = this.authRequest.then(() => this.http(options));
+            request = this.authRequest.then((client: AxiosInstance) => client(options));
         }
 
         return request
             .then((response) => response.data)
             .catch((error) => {
                 if (error.response) {
-                    if (error.response.status === 401) { // Reauthenticate
-                        if (this.isLogged) {
-                            this.isLogged = false;
-                            this.emit('disconnect');
-                            return this.request(options);
-                        } else {
-                            if (error.response.data.errorCode === 'AUTHENTICATION_ERROR') {
-                                this.badCredentials = true;
-                                logger.warn(
-                                    'API client will be locked for '
-                                    + this.lockdownDelay
-                                    + ' hours because of bad credentials or temporary service outage.'
-                                    + ' You can restart plugin to force login retry.',
-                                );
-                                setTimeout(() => {
-                                    this.badCredentials = false;
-                                    this.lockdownDelay *= 2;
-                                }, this.lockdownDelay * 1000);
-                            }
-                            throw error.response.data.error;
-                        }
-                    } else {
-                        //logger.debug(error.response.data);
-                        let msg = 'Error ' + error.response.status;
-                        const json = error.response.data;
-                        if (json && json.error) {
-                            msg += ' ' + json.error;
-                        }
-                        if (json && json.errorCode) {
-                            msg += ' (' + json.errorCode + ')';
-                        }
-                        logger.debug(msg);
-                        throw msg;
+                    if (error.response.status === 401 && this.httpClient !== null) {
+                        // Need reauthentication
+                        this.httpClient = null;
+                        this.emit('disconnect');
+                        return this.request(options);
                     }
+                    //logger.debug(error.response.data);
+                    let msg = 'Error ' + error.response.status;
+                    const json = error.response.data;
+                    if (json && json.error) {
+                        msg += ' ' + json.error;
+                    }
+                    if (json && json.errorCode) {
+                        msg += ' (' + json.errorCode + ')';
+                    }
+                    //logger.debug(msg);
+                    throw msg;
                 } else if (error.message) {
                     logger.debug('Error:', error.message);
                     throw error.message;

@@ -10,7 +10,6 @@ async function main() {
         service: process.env.SERVICE,
         user: process.env.USERNAME,
         password: process.env.PASSWORD,
-        gatewayPin: process.env.GATEWAY,
         pollingPeriod: 30,
         refreshPeriod: 60,
     });
@@ -32,6 +31,18 @@ async function main() {
             case 'a': 
                 //await client.refreshStates();
                 await client.refreshAllStates();
+                break;
+            case 't': 
+                if(process.env.GATEWAY) {
+                    const token = await client.createLocalApiToken(process.env.GATEWAY);
+                    console.log(token);
+                }
+                break;
+            case 'g': 
+                if(process.env.GATEWAY) {
+                    const tokens = await client.getLocalApiTokens(process.env.GATEWAY);
+                    console.log(tokens);
+                }
                 break;
             case '': break;
             default: 
