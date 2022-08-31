@@ -47,19 +47,15 @@ export class ApiEndpoint implements AuthProvider {
         try {
             const params = await this.getLoginParams(user, password);
             const response = await axios.post(this.apiUrl + '/login', params);
-            if (response.headers['set-cookie']) {
-                const cookie = response.headers['set-cookie']?.find((cookie) => cookie.startsWith('JSESSIONID'))?.split(';')[0];
-                if(cookie) {
-                    this.lockdownDelay = 60;
-                    return axios.create({
-                        baseURL: this.apiUrl,
-                        withCredentials: true,
-                        headers: {
-                            'Cookie': cookie,
-                        },
-                    });
-                }
-            }
+            const cookie = response.headers['set-cookie']?.find((cookie) => cookie.startsWith('JSESSIONID'))?.split(';')[0];
+            this.lockdownDelay = 60;
+            return axios.create({
+                baseURL: this.apiUrl,
+                withCredentials: true,
+                headers: {
+                    'Cookie': cookie ?? '',
+                },
+            });
         } catch(error: any) {
             //error.response.data.errorCode === 'AUTHENTICATION_ERROR'
             if(error.response.status >= 400 && error.response.status < 500) {
@@ -77,7 +73,6 @@ export class ApiEndpoint implements AuthProvider {
             }
             throw error;
         }
-        throw new Error('Enable to authenticate');
     }
 }
 
