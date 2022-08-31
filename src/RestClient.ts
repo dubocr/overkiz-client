@@ -131,6 +131,7 @@ export default class RestClient extends EventEmitter {
         private readonly proxy: string | null,
     ) {
         super();
+        axios.interceptors.request.use(this.onRequest.bind(this));
     }
 
     private onRequest(request) {
