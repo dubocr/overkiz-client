@@ -52,9 +52,7 @@ export class ApiEndpoint implements AuthProvider {
             return axios.create({
                 baseURL: this.apiUrl,
                 withCredentials: true,
-                headers: {
-                    'Cookie': cookie ?? '',
-                },
+                headers: cookie ? { 'Cookie': cookie } : undefined,
             });
         } catch(error: any) {
             //error.response.data.errorCode === 'AUTHENTICATION_ERROR'
