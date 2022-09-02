@@ -64,6 +64,9 @@ export default class OverkizClient extends EventEmitter {
         if (!config['user'] || !config['password']) {
             throw new Error('You must provide credentials (user / password)');
         }
+        if (this.refreshPeriod < 1800) {
+            this.log.warn('WARNING: Setting refreshPeriod lower than 30 minutes is discouraged.');
+        }
         const apiEndpoint = endpoints[this.service.toLowerCase()];
         if (!apiEndpoint) {
             throw new Error('Invalid service name: ' + this.service);
