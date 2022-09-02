@@ -13,10 +13,10 @@ const EXEC_TIMEOUT = 2 * 60 * 1000;
 
 const endpoints = {
     local: new LocalApiEndpoint(),
-    tahoma: new ApiEndpoint('https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI'),
-    tahoma_switch: new ApiEndpoint('https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI'),
-    connexoon: new ApiEndpoint('https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI'),
-    connexoon_rts: new ApiEndpoint('https://ha201-1.overkiz.com/enduser-mobile-web/enduserAPI'),
+    somfy_europe: new ApiEndpoint('https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI'),
+    somfy_australia: new ApiEndpoint('https://ha201-1.overkiz.com/enduser-mobile-web/enduserAPI'),
+    somfy_north_america: new ApiEndpoint('https://ha401-1.overkiz.com/enduser-mobile-web/enduserAPI'),
+    flexom: new ApiEndpoint('https://ha108-1.overkiz.com/enduser-mobile-web/enduserAPI'),
     cozytouch: new JWTApiEndpoint(
         'https://ha110-1.overkiz.com/enduser-mobile-web/enduserAPI',
         'https://api.groupe-atlantic.com/token',
@@ -24,7 +24,12 @@ const endpoints = {
         'czduc0RZZXdWbjVGbVV4UmlYN1pVSUM3ZFI4YTphSDEzOXZmbzA1ZGdqeDJkSFVSQkFTbmhCRW9h',
     ),
     rexel: new ApiEndpoint('https://ha112-1.overkiz.com/enduser-mobile-web/enduserAPI'),
-    flexom: new ApiEndpoint('https://ha108-1.overkiz.com/enduser-mobile-web/enduserAPI'),
+    hi_kumo: new ApiEndpoint('https://ha117-1.overkiz.com/enduser-mobile-web/enduserAPI'),
+    
+    tahoma: new ApiEndpoint('https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI'),
+    tahoma_switch: new ApiEndpoint('https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI'),
+    connexoon: new ApiEndpoint('https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI'),
+    connexoon_rts: new ApiEndpoint('https://ha201-1.overkiz.com/enduser-mobile-web/enduserAPI'),
     debug: new ApiEndpoint('https://dev.duboc.pro/api/overkiz'),
 };
 
