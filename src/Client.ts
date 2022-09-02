@@ -64,7 +64,7 @@ export default class OverkizClient extends EventEmitter {
         this.execPollingPeriod = config['execPollingPeriod'] || 5; // Poll for execution events every 5 seconds by default (in seconds)
         this.pollingPeriod = config['pollingPeriod'] || 60; // Poll for events every 60 seconds by default (in seconds)
         this.refreshPeriod = (config['refreshPeriod'] || 30) * 60; // Refresh device states every 30 minutes by default (in minutes)
-        this.service = config['service'] || 'tahoma';
+        this.service = config['service'] || 'somfy_europe';
 
         if (!config['user'] || !config['password']) {
             throw new Error('You must provide credentials (user / password)');
