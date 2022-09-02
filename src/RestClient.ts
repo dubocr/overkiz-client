@@ -26,7 +26,7 @@ export class LocalApiEndpoint implements AuthProvider {
 }
 
 export class ApiEndpoint implements AuthProvider {
-    private badCredentials = false;
+    private isLockedDown = false;
     private lockdownDelay = 60;
 
     constructor(public apiUrl: string) {
@@ -40,7 +40,7 @@ export class ApiEndpoint implements AuthProvider {
     }
 
     async authenticate(user: string, password: string): Promise<AxiosInstance> {
-        if (this.badCredentials) {
+        if (this.isLockedDown) {
             throw 'API client locked. Please check your credentials then restart.\n'
             + 'If your credentials are valid, please wait some hours to be unbanned';
         }
@@ -57,19 +57,29 @@ export class ApiEndpoint implements AuthProvider {
         } catch(error: any) {
             //error.response.data.errorCode === 'AUTHENTICATION_ERROR'
             if(error.response.status >= 400 && error.response.status < 500) {
-                this.badCredentials = true;
+                this.isLockedDown = true;
                 logger.warn(
-                    'API client will be locked for '
-                    + this.lockdownDelay
-                    + ' seconds because of bad credentials or temporary service outage.'
-                    + ' You can restart plugin to force login retry.',
+                    'API client will be locked for ' + this.getLockdownString()
+                    + ' because of bad credentials or temporary service outage.'
+                    + ' You can restart plugin to force login retry'
+                    + ' (not recommanded except if you think your credentials are wrong).',
                 );
                 setTimeout(() => {
-                    this.badCredentials = false;
+                    this.isLockedDown = false;
                     this.lockdownDelay *= 2;
                 }, this.lockdownDelay * 1000);
             }
             throw error;
+        }
+    }
+
+    getLockdownString() {
+        if(this.lockdownDelay > 3600) {
+            return Math.round(this.lockdownDelay / 3600) + ' hours';
+        } else if(this.lockdownDelay > 60) {
+            return Math.round(this.lockdownDelay / 60) + ' minutes';
+        } else {
+            return this.lockdownDelay + ' seconds';
         }
     }
 }

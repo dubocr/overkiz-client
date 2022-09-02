@@ -4,6 +4,8 @@ import { Client } from './index';
 import { default as Device, State } from './models/Device';
 
 dotenv.config();
+process.on('unhandledRejection', console.error);
+process.on('uncaughtException', console.error);
 
 async function main() {
     const client = new Client(console, {

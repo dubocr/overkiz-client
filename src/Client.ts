@@ -164,7 +164,7 @@ export default class OverkizClient extends EventEmitter {
         setTimeout(() => {
             if(this.refreshLock) {
                 this.refreshLock = false;
-                this.refreshDevices();
+                this.refreshDevices().catch((error) => logger.error(error));
             }
         }, 30 * 1000);
     }
