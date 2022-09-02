@@ -2,6 +2,7 @@
 import dotenv from 'dotenv';
 import { Client } from './index';
 import { default as Device, State } from './models/Device';
+import Gateway from './models/Gateway';
 
 dotenv.config();
 process.on('unhandledRejection', console.error);
@@ -14,6 +15,13 @@ async function main() {
         password: process.env.PASSWORD,
         pollingPeriod: 30,
         refreshPeriod: 60,
+    });
+
+    const gateways = await client.getGateways();
+    console.log(`${gateways.length} gateways`);
+    gateways.forEach((gateway: Gateway) => {
+        console.log(`- ${gateway.gatewayId}`);
+
     });
 
     const devices = await client.getDevices();

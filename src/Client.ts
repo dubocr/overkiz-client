@@ -5,6 +5,7 @@ import { State } from './models/Device';
 import Execution, { ExecutionState, ExecutionError } from './models/Execution';
 import RestClient, { ApiEndpoint, JWTApiEndpoint, LocalApiEndpoint } from './RestClient';
 import Location from './models/Location';
+import Gateway from './models/Gateway';
 
 export let logger;
 
@@ -98,6 +99,10 @@ export default class OverkizClient extends EventEmitter {
         } else {
             return Object.keys(this.executionPool).length > 0;
         }
+    }
+
+    public async getGateways(): Promise<Array<Gateway>> {
+        return await this.restClient.get('/setup/gateways');
     }
 
     public async getDevices(): Promise<Array<Device>> {
