@@ -15,6 +15,8 @@ export interface CommandDefinition {
 
 export interface Definition {
     type: string;
+    widgetName: string;
+    uiClass: string;
     commands: CommandDefinition[];
 }
 
@@ -22,15 +24,13 @@ export default class Device extends EventEmitter {
     oid = '';
     deviceURL = '';
     label = '';
-    widget = '';
-    uiClass = '';
     controllableName = '';
     states: Array<State> = [];
 
     pendingUpdate = new Map<string, State>();
     pendingUpdateTimer;
 
-    public definition: Definition = { type: '', commands: [] };
+    public definition: Definition = { type: '', widgetName: '', uiClass: '', commands: [] };
 
     public parent: Device | undefined;
     public sensors: Device[] = [];
@@ -68,7 +68,7 @@ export default class Device extends EventEmitter {
 
     get model() {
         const model = this.get('core:ModelState');
-        return model !== null ? model : this.uiClass;
+        return model !== null ? model : this.definition.uiClass;
     }
 
     get serialNumber() {
@@ -102,7 +102,7 @@ export default class Device extends EventEmitter {
     }
 
     hasSensor(widget: string): boolean {
-        return this.sensors.find((sensor) => sensor.widget === widget) !== undefined;
+        return this.sensors.find((sensor) => sensor.definition.widgetName === widget) !== undefined;
     }
 
     isMainDevice() {
@@ -114,10 +114,12 @@ export default class Device extends EventEmitter {
             case 'io:AtlanticPassAPCOutsideTemperatureSensor':
                 return false;//device.isMainDevice();
             case 'io:AtlanticPassAPCZoneTemperatureSensor':
-                return device.uiClass === 'HeatingSystem';
+                return device.definition.uiClass === 'HeatingSystem';
             default:
                 // TODO: Temporary patch to expose sensor as standalone device in Homebridge
-                return this.widget === 'TemperatureSensor' && device.uiClass === 'HeatingSystem';//this.definition.type === 'SENSOR';
+                return this.definition.widgetName === 'TemperatureSensor'
+                    && device.definition.uiClass === 'HeatingSystem';
+                    //this.definition.type === 'SENSOR';
         }
     }
 
