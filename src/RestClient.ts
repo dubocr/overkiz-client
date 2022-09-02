@@ -2,7 +2,7 @@ import axios, { AxiosInstance, AxiosPromise } from 'axios';
 import { EventEmitter } from 'events';
 import { logger } from './Client';
 import https from 'https';
-import mdns from 'mdns';
+import mdns from 'bonjour';
 
 interface AuthProvider {
     authenticate(user: string, password: string): Promise<AxiosInstance>;
@@ -40,28 +40,27 @@ export class LocalApiEndpoint implements AuthProvider {
     async findGatewayIP(gatewayPin: string) {
         return new Promise((resolve, reject) => {
             const timeout = setTimeout(() => {
-                browser.stop();
                 logger.warn('No gateway found on your network. Please check gateway pin number and make sur you activated developer mode.');
                 logger.warn('For more information please browse https://developer.somfy.com/developer-mode');
                 reject('Search gateway timeout after 10 seconds');
             }, 10 * 1000);
-            const browser = mdns.createBrowser(mdns.tcp('kizboxdev'));
-            browser.on('serviceUp', service => {
-                logger.debug('Gateway service found:', service.name);
-                if(service.txtRecord.gateway_pin === gatewayPin) {
-                    clearTimeout(timeout);
-                    browser.stop();
-                    for(const ip of service.addresses) {
-                        if(ip.match(LocalApiEndpoint.IPV4_REGEXP)) {
-                            logger.debug('Gateway IPv4 is ' + ip);
-                            resolve(ip);
+            mdns().find(
+                { type: 'kizboxdev' },
+                (service) => {
+                    logger.debug('Gateway service found:', service.name);
+                    if(service.txt.gateway_pin === gatewayPin) {
+                        clearTimeout(timeout);
+                        for(const ip of service.addresses) {
+                            if(ip.match(LocalApiEndpoint.IPV4_REGEXP)) {
+                                logger.debug('Gateway IPv4 is ' + ip);
+                                resolve(ip);
+                            }
                         }
+                    } else {
+                        logger.debug('Gateway PIN mismatch:', service.txt?.gateway_pin);
                     }
-                } else {
-                    logger.debug('Gateway PIN mismatch:', service.txtRecord?.gateway_pin);
                 }
-            });
-            browser.start();
+            );
             logger.debug('Looking for local gateway with pin ' + gatewayPin + '...');
         });
     }

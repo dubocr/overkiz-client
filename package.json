@@ -31,8 +31,8 @@
   "homepage": "https://github.com/dubocr/overkiz-client#readme",
   "dependencies": {
     "axios": "^0.27.2",
+    "bonjour": "^3.5.0",
     "events": "^3.3.0",
-    "mdns": "^2.7.2",
     "uuid": "^8.3.2"
   },
   "devDependencies": {
