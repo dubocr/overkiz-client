@@ -41,6 +41,8 @@ export class LocalApiEndpoint implements AuthProvider {
         return new Promise((resolve, reject) => {
             const timeout = setTimeout(() => {
                 browser.stop();
+                logger.warn('No gateway found on your network. Please check gateway pin number and make sur you activated developer mode.');
+                logger.warn('For more information please browse https://developer.somfy.com/developer-mode');
                 reject('Search gateway timeout after 10 seconds');
             }, 10 * 1000);
             const browser = mdns.createBrowser(mdns.tcp('kizboxdev'));
