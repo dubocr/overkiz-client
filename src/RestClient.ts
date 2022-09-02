@@ -37,6 +37,7 @@ export class LocalApiEndpoint implements AuthProvider {
     }
 
     async findGatewayIP(gatewayPin: string) {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
         const mdns = require('bonjour');
         return new Promise((resolve, reject) => {
             const timeout = setTimeout(() => {
