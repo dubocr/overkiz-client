@@ -335,13 +335,14 @@ export default class OverkizClient extends EventEmitter {
     public async createLocalApiToken(gatewayPin: string, tokenLabel: string) {
         const data = await this.restClient.get('config/' + gatewayPin + '/local/tokens/generate');
         logger.debug(data);
-        const resp = await this.restClient.post('config/' + gatewayPin + '/local/tokens', {
+        const token = {
             'label': tokenLabel,
             'token': data.token,
             'scope': 'devmode',
-        });
+        };
+        const resp = await this.restClient.post('config/' + gatewayPin + '/local/tokens', token);
         logger.debug(resp);
-        return data.token;
+        return token;
     }
 
     public async getLocalApiTokens(gatewayPin: string) {
