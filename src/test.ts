@@ -36,7 +36,7 @@ async function main() {
                 break;
             case 't': 
                 if(process.env.GATEWAY) {
-                    const token = await client.createLocalApiToken(process.env.GATEWAY);
+                    const token = await client.createLocalApiToken(process.env.GATEWAY, 'Token TEST');
                     console.log(token);
                 }
                 break;
