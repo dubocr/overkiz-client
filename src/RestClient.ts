@@ -2,7 +2,6 @@ import axios, { AxiosInstance, AxiosPromise } from 'axios';
 import { EventEmitter } from 'events';
 import { logger } from './Client';
 import https from 'https';
-import mdns from 'bonjour';
 
 interface AuthProvider {
     authenticate(user: string, password: string): Promise<AxiosInstance>;
@@ -38,6 +37,7 @@ export class LocalApiEndpoint implements AuthProvider {
     }
 
     async findGatewayIP(gatewayPin: string) {
+        const mdns = require('bonjour');
         return new Promise((resolve, reject) => {
             const timeout = setTimeout(() => {
                 logger.warn('No gateway found on your network. Please check gateway pin number and make sur you activated developer mode.');
