@@ -1,12 +1,14 @@
 /* eslint-disable no-console */
-import OverkizClient from './Client';
 import dotenv from 'dotenv';
-import { Device, State } from '.';
+import { Client } from './index';
+import { default as Device, State } from './models/Device';
 
 dotenv.config();
+process.on('unhandledRejection', console.error);
+process.on('uncaughtException', console.error);
 
 async function main() {
-    const client = new OverkizClient(console, {
+    const client = new Client(console, {
         service: process.env.SERVICE,
         user: process.env.USERNAME,
         password: process.env.PASSWORD,
@@ -17,8 +19,8 @@ async function main() {
     const devices = await client.getDevices();
     console.log(`${devices.length} devices`);
     devices.forEach((device: Device) => {
-        console.log(`${device.parent ? ' ' : ''}\x1b[34m${device.label}\x1b[0m (${device.widget})`);
-        device.sensors.forEach((sensor: Device) => console.log(`\t - \x1b[34m${sensor.label}\x1b[0m (${sensor.widget})`));
+        console.log(`${device.parent ? ' ' : ''}\x1b[34m${device.label}\x1b[0m (${device.definition.uiClass} > ${device.definition.widgetName})`);
+        device.sensors.forEach((sensor: Device) => console.log(`\t - \x1b[34m${sensor.label}\x1b[0m (${sensor.definition.widgetName})`));
         device.on('states', (states) => {
             console.log(device.label + ' states updated');
             states.forEach((state: State) => console.log('\t - ' + state.name + '=' + state.value));
@@ -31,6 +33,18 @@ async function main() {
             case 'a': 
                 //await client.refreshStates();
                 await client.refreshAllStates();
+                break;
+            case 't': 
+                if(process.env.GATEWAY) {
+                    const token = await client.createLocalApiToken(process.env.GATEWAY);
+                    console.log(token);
+                }
+                break;
+            case 'g': 
+                if(process.env.GATEWAY) {
+                    const tokens = await client.getLocalApiTokens(process.env.GATEWAY);
+                    console.log(tokens);
+                }
                 break;
             case '': break;
             default: 

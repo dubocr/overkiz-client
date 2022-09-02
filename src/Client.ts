@@ -1,9 +1,10 @@
 import { EventEmitter } from 'events';
-import { Device, ExecutionState, Location } from '.';
+import Device from './models/Device';
 import ActionGroup from './models/ActionGroup';
 import { State } from './models/Device';
-import Execution, { ExecutionError } from './models/Execution';
-import RestClient, { ApiEndpoint, JWTEndpoint } from './RestClient';
+import Execution, { ExecutionState, ExecutionError } from './models/Execution';
+import RestClient, { ApiEndpoint, JWTApiEndpoint, LocalApiEndpoint } from './RestClient';
+import Location from './models/Location';
 
 export let logger;
 
@@ -11,19 +12,24 @@ const EXEC_TIMEOUT = 2 * 60 * 1000;
 
 
 const endpoints = {
-    tahoma: new ApiEndpoint('https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI'),
-    tahoma_switch: new ApiEndpoint('https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI'),
-    tahoma_usa: new ApiEndpoint('https://ha401-1.overkiz.com/enduser-mobile-web/enduserAPI'),
-    connexoon: new ApiEndpoint('https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI'),
-    connexoon_rts: new ApiEndpoint('https://ha201-1.overkiz.com/enduser-mobile-web/enduserAPI'),
-    cozytouch: new JWTEndpoint(
+    local: new LocalApiEndpoint(),
+    somfy_europe: new ApiEndpoint('https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI'),
+    somfy_australia: new ApiEndpoint('https://ha201-1.overkiz.com/enduser-mobile-web/enduserAPI'),
+    somfy_north_america: new ApiEndpoint('https://ha401-1.overkiz.com/enduser-mobile-web/enduserAPI'),
+    flexom: new ApiEndpoint('https://ha108-1.overkiz.com/enduser-mobile-web/enduserAPI'),
+    cozytouch: new JWTApiEndpoint(
         'https://ha110-1.overkiz.com/enduser-mobile-web/enduserAPI',
         'https://api.groupe-atlantic.com/token',
         'https://api.groupe-atlantic.com/gacoma/gacomawcfservice/accounts/jwt',
         'czduc0RZZXdWbjVGbVV4UmlYN1pVSUM3ZFI4YTphSDEzOXZmbzA1ZGdqeDJkSFVSQkFTbmhCRW9h',
     ),
     rexel: new ApiEndpoint('https://ha112-1.overkiz.com/enduser-mobile-web/enduserAPI'),
-    flexom: new ApiEndpoint('https://ha108-1.overkiz.com/enduser-mobile-web/enduserAPI'),
+    hi_kumo: new ApiEndpoint('https://ha117-1.overkiz.com/enduser-mobile-web/enduserAPI'),
+    
+    tahoma: new ApiEndpoint('https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI'),
+    tahoma_switch: new ApiEndpoint('https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI'),
+    connexoon: new ApiEndpoint('https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI'),
+    connexoon_rts: new ApiEndpoint('https://ha201-1.overkiz.com/enduser-mobile-web/enduserAPI'),
     debug: new ApiEndpoint('https://dev.duboc.pro/api/overkiz'),
 };
 
@@ -58,16 +64,19 @@ export default class OverkizClient extends EventEmitter {
         this.execPollingPeriod = config['execPollingPeriod'] || 5; // Poll for execution events every 5 seconds by default (in seconds)
         this.pollingPeriod = config['pollingPeriod'] || 60; // Poll for events every 60 seconds by default (in seconds)
         this.refreshPeriod = (config['refreshPeriod'] || 30) * 60; // Refresh device states every 30 minutes by default (in minutes)
-        this.service = config['service'] || 'tahoma';
+        this.service = config['service'] || 'somfy_europe';
 
         if (!config['user'] || !config['password']) {
             throw new Error('You must provide credentials (user / password)');
+        }
+        if (this.refreshPeriod < 1800) {
+            this.log.warn('WARNING: Setting refreshPeriod lower than 30 minutes is discouraged.');
         }
         const apiEndpoint = endpoints[this.service.toLowerCase()];
         if (!apiEndpoint) {
             throw new Error('Invalid service name: ' + this.service);
         }
-        this.restClient = new RestClient(config['user'], config['password'], apiEndpoint);
+        this.restClient = new RestClient(config['user'], config['password'], apiEndpoint, config['proxy']);
 
 
         this.listenerId = null;
@@ -163,7 +172,7 @@ export default class OverkizClient extends EventEmitter {
         setTimeout(() => {
             if(this.refreshLock) {
                 this.refreshLock = false;
-                this.refreshDevices();
+                this.refreshDevices().catch((error) => logger.error(error));
             }
         }, 30 * 1000);
     }
@@ -304,7 +313,7 @@ export default class OverkizClient extends EventEmitter {
                     this.refreshDevices();
                 }
             }
-        } catch (error) {
+        } catch (error: any) {
             logger.error('Polling error -', error);
             if (this.listenerId === null && (error.includes('NOT_REGISTERED') || error.includes('UNSPECIFIED_ERROR'))) {
                 this.listenerId = null;
@@ -316,5 +325,21 @@ export default class OverkizClient extends EventEmitter {
 
     private async delay(duration) {
         return new Promise(resolve => setTimeout(resolve, duration));
+    }
+
+    public async createLocalApiToken(gatewayPin: string) {
+        const data = await this.restClient.get('config/' + gatewayPin + '/local/tokens/generate');
+        logger.debug(data);
+        const resp = await this.restClient.post('config/' + gatewayPin + '/local/tokens', {
+            'label': 'Homebridge-tahoma local API',
+            'token': data.token,
+            'scope': 'devmode',
+        });
+        logger.debug(resp);
+        return data.token;
+    }
+
+    public async getLocalApiTokens(gatewayPin: string) {
+        return await this.restClient.get('config/' + gatewayPin + '/local/tokens/devmode');
     }
 }

@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "ES2018", // ~node10
+    "target": "esnext",
     "module": "commonjs",
     "lib": [
       "es2015",
@@ -15,11 +15,10 @@
     "rootDir": "./src",
     "strict": true,
     "esModuleInterop": true,
-    "noImplicitAny": false
+    "noImplicitAny": false,
+    "moduleResolution": "node"
   },
-  "include": [
-    "src/"
-  ],
+  "include": ["src/"],
   "exclude": [
     "**/*.spec.ts"
   ]
