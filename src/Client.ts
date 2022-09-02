@@ -327,11 +327,11 @@ export default class OverkizClient extends EventEmitter {
         return new Promise(resolve => setTimeout(resolve, duration));
     }
 
-    public async createLocalApiToken(gatewayPin: string) {
+    public async createLocalApiToken(gatewayPin: string, tokenLabel: string) {
         const data = await this.restClient.get('config/' + gatewayPin + '/local/tokens/generate');
         logger.debug(data);
         const resp = await this.restClient.post('config/' + gatewayPin + '/local/tokens', {
-            'label': 'Homebridge-tahoma local API',
+            'label': tokenLabel,
             'token': data.token,
             'scope': 'devmode',
         });
