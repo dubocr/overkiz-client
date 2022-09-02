@@ -2,18 +2,27 @@ import axios, { AxiosInstance, AxiosPromise } from 'axios';
 import { EventEmitter } from 'events';
 import { logger } from './Client';
 import https from 'https';
+import mdns from 'mdns';
 
 interface AuthProvider {
     authenticate(user: string, password: string): Promise<AxiosInstance>;
 }
 
 export class LocalApiEndpoint implements AuthProvider {
-
+    static IPV4_REGEXP = new RegExp(/^(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}$/gm);
+    static PIN_REGEXP = new RegExp(/^[0-9]{4}-[0-9]{4}-[0-9]{4}$/gm);
+    
     async authenticate(user: string, password: string): Promise<AxiosInstance> {
-        const ipRegExp = new RegExp(/^(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}$/gm);
-        const domain = user.match(ipRegExp) ? user : 'gateway-' + user;
-        return axios.create({
-            baseURL: 'https://' + domain + ':8443/enduser-mobile-web/1/enduserAPI/',
+        let domain;
+        if(user.match(LocalApiEndpoint.IPV4_REGEXP)) {
+            domain = user;
+        } else if(user.match(LocalApiEndpoint.PIN_REGEXP)) {
+            domain = await this.findGatewayIP(user).catch(() => 'gateway-' + user + '.local');
+        } else {
+            throw new Error('Invalid username. Please provide gateway PIN (XXXX-XXXX-XXXX) or gateway IP');
+        }
+        const client = axios.create({
+            baseURL: 'https://' + domain + ':8443/enduser-mobile-web/1/enduserAPI',
             
             headers: {
                 'Authorization': 'Bearer ' + password,
@@ -21,6 +30,37 @@ export class LocalApiEndpoint implements AuthProvider {
             httpsAgent: new https.Agent({  
                 rejectUnauthorized: false,
             }),
+        });
+        // Test API endpoint to validate credentials
+        const response = await client.get('/apiVersion');
+        logger.debug(response.data);
+        return client;
+    }
+
+    async findGatewayIP(gatewayPin: string) {
+        return new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                browser.stop();
+                reject('Search gateway timeout after 10 seconds');
+            }, 10 * 1000);
+            const browser = mdns.createBrowser(mdns.tcp('kizboxdev'));
+            browser.on('serviceUp', service => {
+                logger.debug('Gateway service found:', service.name);
+                if(service.txtRecord.gateway_pin === gatewayPin) {
+                    clearTimeout(timeout);
+                    browser.stop();
+                    for(const ip of service.addresses) {
+                        if(ip.match(LocalApiEndpoint.IPV4_REGEXP)) {
+                            logger.debug('Gateway IPv4 is ' + ip);
+                            resolve(ip);
+                        }
+                    }
+                } else {
+                    logger.debug('Gateway PIN mismatch:', service.txtRecord?.gateway_pin);
+                }
+            });
+            browser.start();
+            logger.debug('Looking for local gateway with pin ' + gatewayPin + '...');
         });
     }
 }

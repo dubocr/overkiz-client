@@ -36,7 +36,11 @@ export default class Device extends EventEmitter {
     public sensors: Device[] = [];
 
     get uuid() {
-        return validateUUID(this.oid) ? this.oid : UUIDv5(this.oid, '6ba7b812-9dad-11d1-80b4-00c04fd430c8');
+        if(this.oid && this.oid.length > 0) {
+            return validateUUID(this.oid) ? this.oid : UUIDv5(this.oid, '6ba7b812-9dad-11d1-80b4-00c04fd430c8');
+        } else {
+            return UUIDv5(this.deviceURL, '6ba7b812-9dad-11d1-80b4-00c04fd430c8');
+        }
     }
 
     get componentId() {
