@@ -190,37 +190,37 @@ export default class RestClient extends EventEmitter {
         return request;
     }
 
-    public get(url: string) {
+    public get(url: string, reconnect = true) {
         return this.request({
             method: 'get',
             url: url,
-        });
+        }, reconnect);
     }
 
-    public post(url: string, data?: Record<string, unknown> | Array<string>) {
+    public post(url: string, data?: Record<string, unknown> | Array<string>, reconnect = true) {
         return this.request({
             method: 'post',
             url: url,
             data: data,
-        });
+        }, reconnect);
     }
 
-    public put(url: string, data?: Record<string, unknown>) {
+    public put(url: string, data?: Record<string, unknown>, reconnect = true) {
         return this.request({
             method: 'put',
             url: url,
             data: data,
-        });
+        }, reconnect);
     }
 
-    public delete(url: string) {
+    public delete(url: string, reconnect = true) {
         return this.request({
             method: 'delete',
             url: url,
-        });
+        }, reconnect);
     }
 
-    private request(options) {
+    private request(options, reconnect: boolean) {
         let request: AxiosPromise<any>;
         if (this.httpClient) {
             request = this.httpClient(options);
@@ -244,12 +244,6 @@ export default class RestClient extends EventEmitter {
             .then((response) => response.data)
             .catch((error) => {
                 if (error.response) {
-                    if (error.response.status === 401 && this.httpClient !== null) {
-                        // Need reauthentication
-                        this.httpClient = null;
-                        this.emit('disconnect');
-                        return this.request(options);
-                    }
                     //logger.debug(error.response.data);
                     let msg = 'Error ' + error.response.status;
                     const json = error.response.data;
@@ -258,6 +252,15 @@ export default class RestClient extends EventEmitter {
                     }
                     if (json && json.errorCode) {
                         msg += ' (' + json.errorCode + ')';
+                    }
+                    if (error.response.status === 401 && this.httpClient !== null) {
+                        // Session expired
+                        this.httpClient = null;
+                        this.emit('disconnect');
+                        if(reconnect) {
+                            logger.debug('Session expired:', msg);
+                            return this.request(options, false);
+                        }
                     }
                     //logger.debug(msg);
                     throw msg;

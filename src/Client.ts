@@ -50,8 +50,8 @@ export default class OverkizClient extends EventEmitter {
     private execPollingPeriod: number;
     private eventPollingPeriod = 0;
 
-    private eventPollingId: NodeJS.Timeout | null = null;
-    private refreshPollingId: NodeJS.Timeout | null = null;
+    private pollingTaskId: NodeJS.Timeout | null = null;
+    private refreshTaskId: NodeJS.Timeout | null = null;
     private listenerId: null | string = null;
 
     constructor(public readonly log, public readonly config) {
@@ -79,17 +79,15 @@ export default class OverkizClient extends EventEmitter {
         }
         this.restClient = new RestClient(config['user'], config['password'], apiEndpoint, config['proxy']);
 
-
-        this.listenerId = null;
-
         this.restClient.on('connect', () => {
-            this.setRefreshPollingPeriod(this.refreshPeriod);
-            this.setEventPollingPeriod(this.pollingPeriod);
+            //this.emit('connect');
+            this.setRefreshTaskPeriod(this.refreshPeriod);
+            this.setPollingTaskPeriod(this.pollingPeriod);
         });
         this.restClient.on('disconnect', () => {
-            this.listenerId = null;
-            this.setRefreshPollingPeriod(0);
-            this.setEventPollingPeriod(0);
+            //this.emit('disconnect');
+            this.setRefreshTaskPeriod(0);
+            this.setPollingTaskPeriod(0);
         });
     }
 
@@ -155,9 +153,10 @@ export default class OverkizClient extends EventEmitter {
 
     private async registerListener() {
         if (this.listenerId === null) {
-            //logger.debug('Registering event listener...');
-            const data = await this.restClient.post('/events/register');
-            this.listenerId = data.id;
+             //logger.debug('Registering event listener...');
+             const data = await this.restClient.post('/events/register');
+             this.listenerId = data.id;
+            
         }
     }
 
@@ -173,7 +172,7 @@ export default class OverkizClient extends EventEmitter {
         this.refreshLock = true;
         await this.restClient.post('/setup/devices/states/refresh', devices);
 
-        // In case 'RefreshAllDevicesStatesCompletedEvent' was not triggered avec 15 sec, refresh manually
+        // In case 'RefreshAllDevicesStatesCompletedEvent' was not triggered before 30 sec, refresh manually
         setTimeout(() => {
             if(this.refreshLock) {
                 this.refreshLock = false;
@@ -214,14 +213,11 @@ export default class OverkizClient extends EventEmitter {
             return await this.execute(oid, execution);
         }
         try {
-            // Prepare listener
-            await this.registerListener().catch((error) => logger.error(error));
-
             const data = await this.restClient.post('/exec/' + oid, execution);
             this.executionPool[data.execId] = execution;
 
             // Update event poller for execution monitoring
-            this.setEventPollingPeriod(this.execPollingPeriod);
+            this.setPollingTaskPeriod(this.execPollingPeriod);
 
             // Auto remove execution in case of timeout (eg: listener event missed, listener registration fails)
             setTimeout(() => {
@@ -242,32 +238,38 @@ export default class OverkizClient extends EventEmitter {
         await this.restClient.put(`/setup/devices/${encodeURIComponent(deviceURL)}/${label}`);
     }
 
-    private setRefreshPollingPeriod(period: number) {
+    private setRefreshTaskPeriod(period: number) {
         // Clear previous task
-        if (this.refreshPollingId) {
-            clearInterval(this.refreshPollingId);
-            this.refreshPollingId = null;
+        if (this.refreshTaskId) {
+            clearInterval(this.refreshTaskId);
+            this.refreshTaskId = null;
         }
         if (period > 0) {
-            this.refreshPollingId = setInterval(this.refreshTask.bind(this), period * 1000);
+            this.refreshTaskId = setInterval(this.refreshTask.bind(this), period * 1000);
         }
     }
 
-    private setEventPollingPeriod(period: number) {
+    private async setPollingTaskPeriod(period: number) {
         if (period !== this.eventPollingPeriod) {
             this.eventPollingPeriod = period;
 
             // Clear previous task
-            if (this.eventPollingId) {
-                clearInterval(this.eventPollingId);
-                this.eventPollingId = null;
+            if (this.pollingTaskId) {
+                clearInterval(this.pollingTaskId);
+                this.pollingTaskId = null;
             }
 
             if (period > 0) {
-                logger.debug('Change event polling period to ' + period + ' sec');
-                this.eventPollingId = setInterval(this.pollingTask.bind(this), period * 1000);
+                if(this.pollingTaskId === null) {
+                    logger.debug('Enable event polling period every ' + period + ' sec');
+                } else {
+                    logger.debug('Change event polling period to ' + period + ' sec');
+                }
+                this.pollingTaskId = setInterval(this.pollingTask.bind(this), period * 1000);
+                this.pollingTask(); // Run immediately the first execution
             } else {
                 logger.debug('Disable event polling');
+                this.listenerId = null;
             }
         }
     }
@@ -284,7 +286,7 @@ export default class OverkizClient extends EventEmitter {
     private async pollingTask() {
         if (this.eventPollingPeriod !== this.pollingPeriod && !this.hasExecution()) {
             // Restore default polling frequency if no more execution in progress
-            this.setEventPollingPeriod(this.pollingPeriod);
+            this.setPollingTaskPeriod(this.pollingPeriod);
         } else if (!this.fetchLock) {
             // Execute task if not already running
             this.fetchLock = true;
@@ -294,37 +296,50 @@ export default class OverkizClient extends EventEmitter {
     }
 
     private async fetchEvents() {
-        try {
-            await this.registerListener();
-            //logger.debug('Polling events...');
-            const data = await this.restClient.post('/events/' + this.listenerId + '/fetch');
-            for (const event of data) {
-                //logger.log(event);
-                if (event.name === 'DeviceStateChangedEvent') {
-                    const device = this.devices[event.deviceURL];
-                    device.updateStates(event.deviceStates);
-                } else if (event.name === 'ExecutionStateChangedEvent') {
-                    const execution = this.executionPool[event.execId];
-                    if (execution) {
-                        execution.onStateUpdate(event.newState, event);
-                        if (event.timeToNextState === -1) {
-                            // No more state expected for this execution
-                            delete this.executionPool[event.execId];
+        if(this.listenerId !== null) {
+            try {
+                //logger.debug('Polling events...');
+                const data = await this.restClient.post('/events/' + this.listenerId + '/fetch', undefined, false);
+                for (const event of data) {
+                    //logger.log(event);
+                    if (event.name === 'DeviceStateChangedEvent') {
+                        const device = this.devices[event.deviceURL];
+                        device.updateStates(event.deviceStates);
+                    } else if (event.name === 'ExecutionStateChangedEvent') {
+                        const execution = this.executionPool[event.execId];
+                        if (execution) {
+                            execution.onStateUpdate(event.newState, event);
+                            if (event.timeToNextState === -1) {
+                                // No more state expected for this execution
+                                delete this.executionPool[event.execId];
+                            }
                         }
+                    } else if (event.name === 'RefreshAllDevicesStatesCompletedEvent') {
+                        this.refreshLock = false;
+                        logger.debug('Refresh all states completed');
+                        this.refreshDevices();
                     }
-                } else if (event.name === 'RefreshAllDevicesStatesCompletedEvent') {
-                    this.refreshLock = false;
-                    logger.debug('Refresh all states completed');
-                    this.refreshDevices();
+                }
+            } catch (error: any) {
+                logger.error('Polling error -', error);
+                if (error.includes('400') || error.includes('401')) {
+                    // If not registered (400) or disconnected (401)
+                    this.listenerId = null;
+                } else {
+                    // Will lock the poller for 10 sec in case of unknown error
+                    await this.delay(10 * 1000);
                 }
             }
-        } catch (error: any) {
-            logger.error('Polling error -', error);
-            if (this.listenerId === null && (error.includes('NOT_REGISTERED') || error.includes('UNSPECIFIED_ERROR'))) {
-                this.listenerId = null;
+        }
+        if(this.listenerId === null) {
+            try {
+                await this.registerListener();
+            } catch(error) {
+                logger.error('Registration error -', error);
+                // Will lock the poller for 10 sec in case of error
+                await this.delay(10 * 1000);
             }
-            // Will lock the poller for 10 sec in case of error
-            await this.delay(10 * 1000);
+            
         }
     }
 
