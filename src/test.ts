@@ -17,16 +17,15 @@ async function main() {
         refreshPeriod: 60,
     });
 
-    const gateways = await client.getGateways();
-    console.log(`${gateways.length} gateways`);
-    gateways.forEach((gateway: Gateway) => {
+    const setup = await client.getSetup();
+    console.log(`${setup.gateways.length} gateways`);
+    setup.gateways.forEach((gateway: Gateway) => {
         console.log(`- ${gateway.gatewayId}`);
 
     });
 
-    const devices = await client.getDevices();
-    console.log(`${devices.length} devices`);
-    devices.forEach((device: Device) => {
+    console.log(`${setup.devices.length} devices`);
+    setup.devices.forEach((device: Device) => {
         console.log(`${device.parent ? ' ' : ''}\x1b[34m${device.label}\x1b[0m (${device.definition.uiClass} > ${device.definition.widgetName})`);
         device.sensors.forEach((sensor: Device) => console.log(`\t - \x1b[34m${sensor.label}\x1b[0m (${sensor.definition.widgetName})`));
         device.on('states', (states) => {
@@ -34,6 +33,10 @@ async function main() {
             states.forEach((state: State) => console.log('\t - ' + state.name + '=' + state.value));
         });
     });
+
+
+    const history = await client.getExecutionHistory();
+    console.log(history);
 
     process.openStdin().addListener('data', async (d) => {
         const data = d.toString().trim();

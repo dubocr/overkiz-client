@@ -6,6 +6,7 @@ import Execution, { ExecutionState, ExecutionError } from './models/Execution';
 import RestClient, { ApiEndpoint, JWTApiEndpoint, LocalApiEndpoint } from './RestClient';
 import Location from './models/Location';
 import Gateway from './models/Gateway';
+import Setup from './models/Setup';
 
 export let logger;
 
@@ -99,64 +100,11 @@ export default class OverkizClient extends EventEmitter {
         }
     }
 
-    public async getGateways(): Promise<Array<Gateway>> {
-        return await this.restClient.get('/setup/gateways');
-    }
-
-    public async getDevices(): Promise<Array<Device>> {
-        let lastMainDevice: Device | null = null;
-        let lastDevice: Device | null = null;
-        const physicalDevices = new Array<Device>();
-        const devices = (await this.restClient.get('/setup/devices')).map((device) => Object.assign(new Device(), device));
-        devices.forEach((device) => {
-            if (this.devices[device.deviceURL]) {
-                //Object.assign(this.devices[device.deviceURL], device);
-            } else {
-                this.devices[device.deviceURL] = device;
-            }
-            if (device.isMainDevice()) {
-                lastMainDevice = device;
-                lastDevice = device;
-                physicalDevices.push(device);
-            } else {
-                if (lastDevice !== null && device.isSensorOf(lastDevice)) {
-                    lastDevice.addSensor(device);
-                } else if (lastMainDevice !== null && device.isSensorOf(lastMainDevice)) {
-                    lastMainDevice.addSensor(device);
-                } else {
-                    lastDevice = device;
-                    device.parent = lastMainDevice;
-                    physicalDevices.push(device);
-                }
-            }
-        });
-        return physicalDevices;
-    }
-
-    public async refreshDevices() {
-        const devices = await this.getDevices();
-        devices.forEach((freshDevice) => {
-            const device = this.devices[freshDevice.deviceURL];
-            if (device) {
-                device.updateStates(freshDevice.states);
-            }
-        });
-    }
-
-    public async getSetupLocation(): Promise<Location> {
-        return await this.restClient.get('/setup/location') as Location;
-    }
-
-    public async getActionGroups(): Promise<Array<ActionGroup>> {
-        return this.restClient.get('/actionGroups').then((result) => result.map((data) => data as ActionGroup));
-    }
-
     private async registerListener() {
         if (this.listenerId === null) {
-             //logger.debug('Registering event listener...');
-             const data = await this.restClient.post('/events/register');
-             this.listenerId = data.id;
-            
+            //logger.debug('Registering event listener...');
+            const data = await this.restClient.post('/events/register');
+            this.listenerId = data.id;
         }
     }
 
@@ -166,37 +114,6 @@ export default class OverkizClient extends EventEmitter {
             await this.restClient.post('/events/' + this.listenerId + '/unregister');
             this.listenerId = null;
         }
-    }
-
-    async refreshAllStates(devices: Array<string> = []) {
-        this.refreshLock = true;
-        await this.restClient.post('/setup/devices/states/refresh', devices);
-
-        // In case 'RefreshAllDevicesStatesCompletedEvent' was not triggered before 30 sec, refresh manually
-        setTimeout(() => {
-            if(this.refreshLock) {
-                this.refreshLock = false;
-                this.refreshDevices().catch((error) => logger.error(error));
-            }
-        }, 30 * 1000);
-    }
-
-    async refreshDeviceStates(deviceURL: string) {
-        await this.restClient.post('/setup/devices/' + encodeURIComponent(deviceURL) + '/states/refresh');
-    }
-
-    async getState(deviceURL, state) {
-        const data = await this.restClient.get('/setup/devices/' + encodeURIComponent(deviceURL) + '/states/' + encodeURIComponent(state));
-        return data.value;
-    }
-
-    async getStates(deviceURL): Promise<Array<State>> {
-        const states = await this.restClient.get('/setup/devices/' + encodeURIComponent(deviceURL) + '/states');
-        return states;
-    }
-
-    async cancelExecution(execId) {
-        return await this.restClient.delete('/exec/current/setup/' + execId);
     }
 
     /*
@@ -232,10 +149,6 @@ export default class OverkizClient extends EventEmitter {
         } catch (error) {
             throw new ExecutionError(ExecutionState.FAILED, error);
         }
-    }
-
-    async setDeviceName(deviceURL, label) {
-        await this.restClient.put(`/setup/devices/${encodeURIComponent(deviceURL)}/${label}`);
     }
 
     private setRefreshTaskPeriod(period: number) {
@@ -345,6 +258,108 @@ export default class OverkizClient extends EventEmitter {
 
     private async delay(duration) {
         return new Promise(resolve => setTimeout(resolve, duration));
+    }
+
+    private attachDevices(data) {
+        const devices = data.map((device) => Object.assign(new Device(), device));
+        let lastMainDevice: Device | null = null;
+        let lastDevice: Device | null = null;
+        const physicalDevices = new Array<Device>();
+        devices.forEach((device) => {
+            if (this.devices[device.deviceURL]) {
+                //Object.assign(this.devices[device.deviceURL], device);
+            } else {
+                this.devices[device.deviceURL] = device;
+            }
+            if (device.isMainDevice()) {
+                lastMainDevice = device;
+                lastDevice = device;
+                physicalDevices.push(device);
+            } else {
+                if (lastDevice !== null && device.isSensorOf(lastDevice)) {
+                    lastDevice.addSensor(device);
+                } else if (lastMainDevice !== null && device.isSensorOf(lastMainDevice)) {
+                    lastMainDevice.addSensor(device);
+                } else {
+                    lastDevice = device;
+                    device.parent = lastMainDevice;
+                    physicalDevices.push(device);
+                }
+            }
+        });
+        return physicalDevices;
+    }
+
+    public async getSetupLocation(): Promise<Location> {
+        return await this.restClient.get('/setup/location') as Location;
+    }
+
+    public async getActionGroups(): Promise<Array<ActionGroup>> {
+        return this.restClient.get('/actionGroups');
+    }
+
+    public async refreshAllStates(devices: Array<string> = []) {
+        this.refreshLock = true;
+        await this.restClient.post('/setup/devices/states/refresh', devices);
+
+        // In case 'RefreshAllDevicesStatesCompletedEvent' was not triggered before 30 sec, refresh manually
+        setTimeout(() => {
+            if(this.refreshLock) {
+                this.refreshLock = false;
+                this.refreshDevices().catch((error) => logger.error(error));
+            }
+        }, 30 * 1000);
+    }
+
+    public async refreshDeviceStates(deviceURL: string) {
+        await this.restClient.post('/setup/devices/' + encodeURIComponent(deviceURL) + '/states/refresh');
+    }
+
+    public async refreshDevices() {
+        const devices = await this.getDevices();
+        devices.forEach((freshDevice) => {
+            const device = this.devices[freshDevice.deviceURL];
+            if (device) {
+                device.updateStates(freshDevice.states);
+            }
+        });
+    }
+
+    public async getState(deviceURL, state) {
+        const data = await this.restClient.get('/setup/devices/' + encodeURIComponent(deviceURL) + '/states/' + encodeURIComponent(state));
+        return data.value;
+    }
+
+    public async getStates(deviceURL): Promise<Array<State>> {
+        const states = await this.restClient.get('/setup/devices/' + encodeURIComponent(deviceURL) + '/states');
+        return states;
+    }
+
+    public async cancelExecution(execId) {
+        return await this.restClient.delete('/exec/current/setup/' + execId);
+    }
+
+    public async getExecutionHistory(): Promise<Array<Execution>> {
+        return await this.restClient.get('/history/executions');
+    }
+
+    public async getSetup(): Promise<Setup> {
+        const data = await this.restClient.get('/setup');
+        data.devices = this.attachDevices(data.devices);
+        return data;
+    }
+
+    public async getGateways(): Promise<Array<Gateway>> {
+        return await this.restClient.get('/setup/gateways');
+    }
+
+    public async getDevices(): Promise<Array<Device>> {
+        const data = await this.restClient.get('/setup/devices');
+        return this.attachDevices(data);
+    }
+
+    public async setDeviceName(deviceURL, label) {
+        await this.restClient.put(`/setup/devices/${encodeURIComponent(deviceURL)}/${label}`);
     }
 
     public async createLocalApiToken(gatewayPin: string, tokenLabel: string) {
