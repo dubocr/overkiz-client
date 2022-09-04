@@ -87,17 +87,11 @@ export class ApiEndpoint implements AuthProvider {
             + 'If your credentials are valid, please wait some hours to be unbanned';
         }
         try {
-            let cookie: string | undefined;
-            if(typeof document !== 'undefined'){
-                cookie = document.cookie.split(';').find((cookie) => cookie.trim().startsWith('JSESSIONID'));
-            }
-            if(!cookie) {
-                const params = await this.getLoginParams(user, password);
-                const response = await axios.post(this.apiUrl + '/login', params);
-                logger.debug(response.headers['set-cookie']);
-                cookie = response.headers['set-cookie']?.find((cookie) => cookie.startsWith('JSESSIONID'))?.split(';')[0];
-                this.lockdownDelay = 60;
-            }
+            const params = await this.getLoginParams(user, password);
+            const response = await axios.post(this.apiUrl + '/login', params);
+            logger.debug(response.headers['set-cookie']);
+            const cookie = response.headers['set-cookie']?.find((cookie) => cookie.startsWith('JSESSIONID'))?.split(';')[0];
+            this.lockdownDelay = 60;
             return axios.create({
                 baseURL: this.apiUrl,
                 withCredentials: true,
