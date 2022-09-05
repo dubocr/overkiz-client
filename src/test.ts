@@ -13,9 +13,11 @@ async function main() {
         service: process.env.SERVICE,
         user: process.env.USERNAME,
         password: process.env.PASSWORD,
+        proxy: process.env.PROXY,
         pollingPeriod: 30,
         refreshPeriod: 60,
     });
+    //client.setCredentials(process.env.USERNAME, process.env.PASSWORD);
 
     const setup = await client.getSetup();
     console.log(`${setup.gateways.length} gateways`);
@@ -33,10 +35,6 @@ async function main() {
             states.forEach((state: State) => console.log('\t - ' + state.name + '=' + state.value));
         });
     });
-
-
-    const history = await client.getExecutionHistory();
-    console.log(history);
 
     process.openStdin().addListener('data', async (d) => {
         const data = d.toString().trim();

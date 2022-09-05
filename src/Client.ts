@@ -3,7 +3,7 @@ import Device from './models/Device';
 import ActionGroup from './models/ActionGroup';
 import { State } from './models/Device';
 import Execution, { ExecutionState, ExecutionError } from './models/Execution';
-import RestClient, { ApiEndpoint, JWTApiEndpoint, LocalApiEndpoint } from './RestClient';
+import ApiClient, { CloudApiClient, CloudJWTApiClient, LocalApiClient } from './ApiClient';
 import Location from './models/Location';
 import Gateway from './models/Gateway';
 import Setup from './models/Setup';
@@ -13,30 +13,31 @@ export let logger;
 const EXEC_TIMEOUT = 2 * 60 * 1000;
 
 
-const endpoints = {
-    local: new LocalApiEndpoint(),
-    somfy_europe: new ApiEndpoint('https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI'),
-    somfy_australia: new ApiEndpoint('https://ha201-1.overkiz.com/enduser-mobile-web/enduserAPI'),
-    somfy_north_america: new ApiEndpoint('https://ha401-1.overkiz.com/enduser-mobile-web/enduserAPI'),
-    flexom: new ApiEndpoint('https://ha108-1.overkiz.com/enduser-mobile-web/enduserAPI'),
-    cozytouch: new JWTApiEndpoint(
-        'https://ha110-1.overkiz.com/enduser-mobile-web/enduserAPI',
-        'https://api.groupe-atlantic.com/token',
-        'https://api.groupe-atlantic.com/gacoma/gacomawcfservice/accounts/jwt',
-        'czduc0RZZXdWbjVGbVV4UmlYN1pVSUM3ZFI4YTphSDEzOXZmbzA1ZGdqeDJkSFVSQkFTbmhCRW9h',
-    ),
-    rexel: new ApiEndpoint('https://ha112-1.overkiz.com/enduser-mobile-web/enduserAPI'),
-    hi_kumo: new ApiEndpoint('https://ha117-1.overkiz.com/enduser-mobile-web/enduserAPI'),
-    
-    tahoma: new ApiEndpoint('https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI'),
-    tahoma_switch: new ApiEndpoint('https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI'),
-    connexoon: new ApiEndpoint('https://ha101-1.overkiz.com/enduser-mobile-web/enduserAPI'),
-    connexoon_rts: new ApiEndpoint('https://ha201-1.overkiz.com/enduser-mobile-web/enduserAPI'),
-    debug: new ApiEndpoint('https://dev.duboc.pro/api/overkiz'),
-};
+function getApiClient(service: string): ApiClient {
+    switch(service.toLowerCase()) {
+        case 'local': return new LocalApiClient();
+        case 'tahoma':
+        case 'tahoma_switch':
+        case 'connexoon':
+        case 'somfy_europe': return new CloudApiClient('ha101-1.overkiz.com');
+        case 'connexoon_rts': 
+        case 'somfy_australia': return new CloudApiClient('ha201-1.overkiz.com');
+        case 'somfy_north_america': return new CloudApiClient('ha401-1.overkiz.com');
+        case 'flexom': return new CloudApiClient('ha108-1.overkiz.com');
+        case 'cozytouch': return new CloudJWTApiClient(
+            'ha110-1.overkiz.com',
+            'https://api.groupe-atlantic.com/token',
+            'https://api.groupe-atlantic.com/gacoma/gacomawcfservice/accounts/jwt',
+            'czduc0RZZXdWbjVGbVV4UmlYN1pVSUM3ZFI4YTphSDEzOXZmbzA1ZGdqeDJkSFVSQkFTbmhCRW9h',
+        );
+        case 'rexel': return new CloudApiClient('ha112-1.overkiz.com');
+        case 'hi_kumo': return new CloudApiClient('ha117-1.overkiz.com');
+        default: throw new Error('Invalid service name: ' + service);
+    }
+}
 
 export default class OverkizClient extends EventEmitter {
-    private restClient: RestClient;
+    private api: ApiClient;
 
     private service: string;
 
@@ -57,11 +58,7 @@ export default class OverkizClient extends EventEmitter {
 
     constructor(public readonly log, public readonly config) {
         super();
-        logger = Object.assign({}, log);
-        logger.debug = (...args) => {
-            config['debug'] ? log.info('\x1b[90m', ...args) : log.debug(...args);
-        };
-
+        logger = log;
         // Default values
         this.execPollingPeriod = config['execPollingPeriod'] || 5; // Poll for execution events every 5 seconds by default (in seconds)
         this.pollingPeriod = config['pollingPeriod'] || 60; // Poll for events every 60 seconds by default (in seconds)
@@ -74,22 +71,43 @@ export default class OverkizClient extends EventEmitter {
         if (this.refreshPeriod < 1800) {
             this.log.warn('WARNING: Setting refreshPeriod lower than 30 minutes is discouraged.');
         }
-        const apiEndpoint = endpoints[this.service.toLowerCase()];
-        if (!apiEndpoint) {
-            throw new Error('Invalid service name: ' + this.service);
+        this.api = getApiClient(this.service);
+        this.api.client.interceptors.request.use((request) => {
+            if(config['proxy']) {
+                const url = new URL(request.url?.startsWith('http') ? request.url : ((request.baseURL ?? '') + request.url));
+                request.baseURL = config['proxy'];
+                request.url = url.pathname;
+                if(request.headers === undefined) {
+                    request.headers = {};
+                }
+                request.headers['X-Forward-Host'] = url.host;
+            }
+            logger.debug(request.method?.toUpperCase(), request.url);
+            return request;
+        });
+        if(config['user'] && config['user']) {
+            this.api.setCredentials(config['user'], config['password']);
         }
-        this.restClient = new RestClient(config['user'], config['password'], apiEndpoint, config['proxy']);
 
-        this.restClient.on('connect', () => {
+        this.api.on('connect', () => {
             //this.emit('connect');
             this.setRefreshTaskPeriod(this.refreshPeriod);
             this.setPollingTaskPeriod(this.pollingPeriod);
         });
-        this.restClient.on('disconnect', () => {
+        this.api.on('disconnect', () => {
             //this.emit('disconnect');
             this.setRefreshTaskPeriod(0);
             this.setPollingTaskPeriod(0);
         });
+    }
+
+    public isAuthenticated() {
+        return this.api.isAuthenticated();
+    }
+
+    public connect(user: string, password: string) {
+        this.api.setCredentials(user, password);
+        return this.api.connect();
     }
 
     public hasExecution(execId?: string) {
@@ -103,7 +121,7 @@ export default class OverkizClient extends EventEmitter {
     private async registerListener() {
         if (this.listenerId === null) {
             //logger.debug('Registering event listener...');
-            const data = await this.restClient.post('/events/register');
+            const data = await this.api.post('/events/register');
             this.listenerId = data.id;
         }
     }
@@ -111,7 +129,7 @@ export default class OverkizClient extends EventEmitter {
     private async unregisterListener() {
         if (this.listenerId !== null) {
             //logger.debug('Unregistering event listener...');
-            await this.restClient.post('/events/' + this.listenerId + '/unregister');
+            await this.api.post('/events/' + this.listenerId + '/unregister');
             this.listenerId = null;
         }
     }
@@ -130,7 +148,7 @@ export default class OverkizClient extends EventEmitter {
             return await this.execute(oid, execution);
         }
         try {
-            const data = await this.restClient.post('/exec/' + oid, execution);
+            const data = await this.api.post('/exec/' + oid, execution);
             this.executionPool[data.execId] = execution;
 
             // Update event poller for execution monitoring
@@ -212,7 +230,7 @@ export default class OverkizClient extends EventEmitter {
         if(this.listenerId !== null) {
             try {
                 //logger.debug('Polling events...');
-                const data = await this.restClient.post('/events/' + this.listenerId + '/fetch', undefined, false);
+                const data = await this.api.post('/events/' + this.listenerId + '/fetch', undefined, false);
                 for (const event of data) {
                     //logger.log(event);
                     if (event.name === 'DeviceStateChangedEvent') {
@@ -291,16 +309,16 @@ export default class OverkizClient extends EventEmitter {
     }
 
     public async getSetupLocation(): Promise<Location> {
-        return await this.restClient.get('/setup/location') as Location;
+        return await this.api.get('/setup/location') as Location;
     }
 
     public async getActionGroups(): Promise<Array<ActionGroup>> {
-        return this.restClient.get('/actionGroups');
+        return this.api.get('/actionGroups');
     }
 
     public async refreshAllStates(devices: Array<string> = []) {
         this.refreshLock = true;
-        await this.restClient.post('/setup/devices/states/refresh', devices);
+        await this.api.post('/setup/devices/states/refresh', devices);
 
         // In case 'RefreshAllDevicesStatesCompletedEvent' was not triggered before 30 sec, refresh manually
         setTimeout(() => {
@@ -312,7 +330,7 @@ export default class OverkizClient extends EventEmitter {
     }
 
     public async refreshDeviceStates(deviceURL: string) {
-        await this.restClient.post('/setup/devices/' + encodeURIComponent(deviceURL) + '/states/refresh');
+        await this.api.post('/setup/devices/' + encodeURIComponent(deviceURL) + '/states/refresh');
     }
 
     public async refreshDevices() {
@@ -326,56 +344,56 @@ export default class OverkizClient extends EventEmitter {
     }
 
     public async getState(deviceURL, state) {
-        const data = await this.restClient.get('/setup/devices/' + encodeURIComponent(deviceURL) + '/states/' + encodeURIComponent(state));
+        const data = await this.api.get('/setup/devices/' + encodeURIComponent(deviceURL) + '/states/' + encodeURIComponent(state));
         return data.value;
     }
 
     public async getStates(deviceURL): Promise<Array<State>> {
-        const states = await this.restClient.get('/setup/devices/' + encodeURIComponent(deviceURL) + '/states');
+        const states = await this.api.get('/setup/devices/' + encodeURIComponent(deviceURL) + '/states');
         return states;
     }
 
     public async cancelExecution(execId) {
-        return await this.restClient.delete('/exec/current/setup/' + execId);
+        return await this.api.delete('/exec/current/setup/' + execId);
     }
 
     public async getExecutionHistory(): Promise<Array<Execution>> {
-        return await this.restClient.get('/history/executions');
+        return await this.api.get('/history/executions');
     }
 
     public async getSetup(): Promise<Setup> {
-        const data = await this.restClient.get('/setup');
+        const data = await this.api.get('/setup');
         data.devices = this.attachDevices(data.devices);
         return data;
     }
 
     public async getGateways(): Promise<Array<Gateway>> {
-        return await this.restClient.get('/setup/gateways');
+        return await this.api.get('/setup/gateways');
     }
 
     public async getDevices(): Promise<Array<Device>> {
-        const data = await this.restClient.get('/setup/devices');
+        const data = await this.api.get('/setup/devices');
         return this.attachDevices(data);
     }
 
     public async setDeviceName(deviceURL, label) {
-        await this.restClient.put(`/setup/devices/${encodeURIComponent(deviceURL)}/${label}`);
+        await this.api.put(`/setup/devices/${encodeURIComponent(deviceURL)}/${label}`);
     }
 
     public async createLocalApiToken(gatewayPin: string, tokenLabel: string) {
-        const data = await this.restClient.get('config/' + gatewayPin + '/local/tokens/generate');
+        const data = await this.api.get('config/' + gatewayPin + '/local/tokens/generate');
         logger.debug(data);
         const token = {
             'label': tokenLabel,
             'token': data.token,
             'scope': 'devmode',
         };
-        const resp = await this.restClient.post('config/' + gatewayPin + '/local/tokens', token);
+        const resp = await this.api.post('config/' + gatewayPin + '/local/tokens', token);
         logger.debug(resp);
         return token;
     }
 
     public async getLocalApiTokens(gatewayPin: string) {
-        return await this.restClient.get('config/' + gatewayPin + '/local/tokens/devmode');
+        return await this.api.get('config/' + gatewayPin + '/local/tokens/devmode');
     }
 }
