@@ -65,9 +65,6 @@ export default class OverkizClient extends EventEmitter {
         this.refreshPeriod = (config['refreshPeriod'] || 30) * 60; // Refresh device states every 30 minutes by default (in minutes)
         this.service = config['service'] || 'somfy_europe';
 
-        if (!config['user'] || !config['password']) {
-            throw new Error('You must provide credentials (user / password)');
-        }
         if (this.refreshPeriod < 1800) {
             this.log.warn('WARNING: Setting refreshPeriod lower than 30 minutes is discouraged.');
         }
@@ -381,19 +378,19 @@ export default class OverkizClient extends EventEmitter {
     }
 
     public async createLocalApiToken(gatewayPin: string, tokenLabel: string) {
-        const data = await this.api.get('config/' + gatewayPin + '/local/tokens/generate');
+        const data = await this.api.get('/config/' + gatewayPin + '/local/tokens/generate');
         logger.debug(data);
         const token = {
             'label': tokenLabel,
             'token': data.token,
             'scope': 'devmode',
         };
-        const resp = await this.api.post('config/' + gatewayPin + '/local/tokens', token);
+        const resp = await this.api.post('/config/' + gatewayPin + '/local/tokens', token);
         logger.debug(resp);
         return token;
     }
 
     public async getLocalApiTokens(gatewayPin: string) {
-        return await this.api.get('config/' + gatewayPin + '/local/tokens/devmode');
+        return await this.api.get('/config/' + gatewayPin + '/local/tokens/devmode');
     }
 }

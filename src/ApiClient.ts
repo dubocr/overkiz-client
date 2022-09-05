@@ -178,8 +178,12 @@ export class CloudApiClient extends ApiClient {
     }
 
     public async isAuthenticated() {
-        const result = await this.client.get('/authenticated');
-        return result.data.authenticated;
+        if(this.isConnected === undefined) {
+            const result = await this.client.get('/authenticated');
+            this.isConnected = result.data.authenticated;
+        }
+        return this.isConnected ?? false;
+        
     }
 
     protected async authenticate(user: string, password: string): Promise<void> {
