@@ -98,10 +98,6 @@ export default class OverkizClient extends EventEmitter {
         });
     }
 
-    public isAuthenticated() {
-        return this.api.isAuthenticated();
-    }
-
     public connect(user: string, password: string) {
         this.api.setCredentials(user, password);
         return this.api.connect();

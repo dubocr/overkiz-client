@@ -6,7 +6,7 @@ import https from 'https';
 export default class ApiClient extends EventEmitter {
     public readonly client: AxiosInstance = axios.create();
     private connectPromise?: Promise<void>;
-    protected isConnected?: boolean;
+    protected isAuthenticated?: boolean;
 
     private user?: string;
     private password?: string;
@@ -37,11 +37,11 @@ export default class ApiClient extends EventEmitter {
                     if (error.response.status === 401) {
                         // Session expired
                         this.connectPromise = undefined;
-                        if(this.isConnected) {
-                            this.isConnected = false;
+                        if(this.isAuthenticated) {
+                            this.isAuthenticated = false;
+                            logger.debug('Session expired:', msg);
                             this.emit('disconnect');
                             if(reconnect) {
-                                logger.debug('Session expired:', msg);
                                 return this.request(options, false);
                             }
                         }
@@ -63,20 +63,13 @@ export default class ApiClient extends EventEmitter {
         this.password = password;
     }
 
-    public async isAuthenticated(): Promise<boolean> {
-        return this.isConnected === true;
-    }
-
     public async connect() {
-        if(this.isConnected === undefined) {
-            this.isConnected = await this.isAuthenticated();
+        if(this.user === undefined || this.password === undefined) {
+            throw new Error('Invalid credentials provided');
         }
-        if(!this.isConnected) {
-            if(this.user === undefined || this.password === undefined) {
-                throw new Error('Invalid credentials provided');
-            }
-            await this.authenticate(this.user, this.password);
-            this.isConnected = true;
+        await this.authenticate(this.user, this.password);
+        if(!this.isAuthenticated) {
+            this.isAuthenticated = true;
             this.emit('connect');
         }
     }
@@ -122,7 +115,17 @@ export class LocalApiClient extends ApiClient {
         if(user.match(LocalApiClient.IPV4_REGEXP)) {
             domain = user;
         } else if(user.match(LocalApiClient.PIN_REGEXP)) {
-            domain = await this.findGatewayIP(user).catch(() => 'gateway-' + user + '.local');
+            domain = 'gateway-' + user + '.local';
+            if(typeof process === 'object') {
+                // mDNS lookup on nodeJS only
+                try {
+                    domain = await this.findGatewayIP(user);
+                } catch(error) {
+                    logger.warn('No gateway found on your network:', error);
+                    logger.warn('Please check gateway pin number and make sur developer mode is activated.');
+                    logger.warn('For more information: https://developer.somfy.com/developer-mode');
+                }
+            }
         } else {
             throw new Error('Invalid username. Please provide gateway PIN (XXXX-XXXX-XXXX) or gateway IP');
         }
@@ -141,9 +144,7 @@ export class LocalApiClient extends ApiClient {
         const mdns = require('bonjour');
         return new Promise((resolve, reject) => {
             const timeout = setTimeout(() => {
-                logger.warn('No gateway found on your network. Please check gateway pin number and make sur you activated developer mode.');
-                logger.warn('For more information please browse https://developer.somfy.com/developer-mode');
-                reject('Search gateway timeout after 10 seconds');
+                reject('Search timeout after 10 seconds');
             }, 10 * 1000);
             mdns().find(
                 { type: 'kizboxdev' },
@@ -162,7 +163,7 @@ export class LocalApiClient extends ApiClient {
                     }
                 },
             );
-            logger.debug('Looking for local gateway with pin ' + gatewayPin + '...');
+            logger.debug('Looking for local gateway with pin ' + gatewayPin);
         });
     }
 }
@@ -174,18 +175,19 @@ export class CloudApiClient extends ApiClient {
     constructor(private readonly host: string) {
         super();
         this.client.defaults.baseURL = 'https://' + host + '/enduser-mobile-web/enduserAPI';
-    }
-
-    public async isAuthenticated() {
-        if(this.isConnected === undefined) {
-            const result = await this.client.get('/authenticated');
-            this.isConnected = result.data.authenticated;
-            if(this.isConnected) {
-                this.emit('connect');
-            }
+        if(typeof window !== 'undefined' && this.isAuthenticated === undefined) {
+            // Try connection with cookie on browser
+            this.client.get('/authenticated')
+                .then((result) => {
+                    this.isAuthenticated = result.data.authenticated;
+                    if(this.isAuthenticated) {
+                        this.emit('connect');
+                    }
+                })
+                .catch(() => this.isAuthenticated = false);
+        } else {
+            this.isAuthenticated = false;
         }
-        return await super.isAuthenticated();
-        
     }
 
     protected async authenticate(user: string, password: string): Promise<void> {
