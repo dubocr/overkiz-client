@@ -68,8 +68,16 @@ export default class ApiClient extends EventEmitter {
         this.password = password;
     }
 
+    public async restoreSession(authenticated: boolean) {
+        this.isAuthenticated = authenticated;
+        if(this.isAuthenticated) {
+            this.connectPromise = Promise.resolve();
+            this.emit('connect');
+        }
+    }
+
     public async connect() {
-        if(this.user === undefined || this.password === undefined) {
+        if(!this.user || !this.password) {
             throw new Error('Invalid credentials provided');
         }
         await this.authenticate(this.user, this.password);
@@ -183,12 +191,7 @@ export class CloudApiClient extends ApiClient {
         if(typeof window !== 'undefined' && this.isAuthenticated === undefined) {
             // Try connection with cookie on browser
             this.client.get('/authenticated')
-                .then((result) => {
-                    this.isAuthenticated = result.data.authenticated;
-                    if(this.isAuthenticated) {
-                        this.emit('connect');
-                    }
-                })
+                .then((result) => this.restoreSession(result.data.authenticated))
                 .catch(() => this.isAuthenticated = false);
         } else {
             this.isAuthenticated = false;
