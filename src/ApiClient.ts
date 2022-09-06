@@ -18,7 +18,7 @@ export default class ApiClient extends EventEmitter {
     
     private request(options, reconnect: boolean) {
         if(this.connectPromise === undefined) {
-            this.connectPromise = new Promise((resolve, reject) => this.connect().then(resolve).catch(reject));
+            this.connectPromise = this.connect();
         }
         return this.connectPromise
             .then(() => this.client(options))
@@ -38,12 +38,11 @@ export default class ApiClient extends EventEmitter {
                         // Session expired
                         this.connectPromise = undefined;
                         if(this.isConnected) {
+                            this.isConnected = false;
+                            this.emit('disconnect');
                             if(reconnect) {
                                 logger.debug('Session expired:', msg);
                                 return this.request(options, false);
-                            } else {
-                                this.isConnected = false;
-                                this.emit('disconnect');
                             }
                         }
                     }
@@ -77,9 +76,9 @@ export default class ApiClient extends EventEmitter {
                 throw new Error('Invalid credentials provided');
             }
             await this.authenticate(this.user, this.password);
+            this.isConnected = true;
+            this.emit('connect');
         }
-        this.isConnected = true;
-        this.emit('connect');
     }
 
     public get(url: string, reconnect = true) {
@@ -181,8 +180,11 @@ export class CloudApiClient extends ApiClient {
         if(this.isConnected === undefined) {
             const result = await this.client.get('/authenticated');
             this.isConnected = result.data.authenticated;
+            if(this.isConnected) {
+                this.emit('connect');
+            }
         }
-        return this.isConnected ?? false;
+        return await super.isAuthenticated();
         
     }
 

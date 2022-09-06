@@ -43,6 +43,9 @@ async function main() {
                 //await client.refreshStates();
                 await client.refreshAllStates();
                 break;
+            case 's': 
+                await client.getSetup();
+                break;
             case 't': 
                 if(process.env.GATEWAY) {
                     const token = await client.createLocalApiToken(process.env.GATEWAY, 'Token TEST');
