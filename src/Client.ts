@@ -80,7 +80,7 @@ export default class OverkizClient extends EventEmitter {
                 }
                 request.headers['X-Forward-Host'] = url.host;
             }
-            logger.debug(request.method?.toUpperCase(), request.baseURL + request.url);
+            logger.debug(request.method?.toUpperCase(), request.url);
             return request;
         };
 
@@ -249,8 +249,8 @@ export default class OverkizClient extends EventEmitter {
                 }
             } catch (error: any) {
                 logger.error('Polling error -', error);
-                if (error.includes('400') || error.includes('401')) {
-                    // If not registered (400) or disconnected (401)
+                if (error.includes('400') || error.includes('401') || error.includes('404')) {
+                    // If not registered (400/404) or disconnected (401)
                     this.listenerId = null;
                 } else {
                     // Will lock the poller for 10 sec in case of unknown error
