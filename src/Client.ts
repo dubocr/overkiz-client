@@ -87,12 +87,12 @@ export default class OverkizClient extends EventEmitter {
         }
 
         this.api.on('connect', () => {
-            //this.emit('connect');
+            this.emit('connect');
             this.setRefreshTaskPeriod(this.refreshPeriod);
             this.setPollingTaskPeriod(this.pollingPeriod);
         });
         this.api.on('disconnect', () => {
-            //this.emit('disconnect');
+            this.emit('disconnect');
             this.setRefreshTaskPeriod(0);
             this.setPollingTaskPeriod(0);
         });
