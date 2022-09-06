@@ -9,6 +9,7 @@ import Gateway from './models/Gateway';
 import Setup from './models/Setup';
 
 export let logger;
+export let interceptor;
 
 const EXEC_TIMEOUT = 2 * 60 * 1000;
 
@@ -68,8 +69,8 @@ export default class OverkizClient extends EventEmitter {
         if (this.refreshPeriod < 1800) {
             this.log.warn('WARNING: Setting refreshPeriod lower than 30 minutes is discouraged.');
         }
-        this.api = getApiClient(this.service);
-        this.api.client.interceptors.request.use((request) => {
+
+        interceptor = (request) => {
             if(config['proxy']) {
                 const url = new URL(request.url?.startsWith('http') ? request.url : ((request.baseURL ?? '') + request.url));
                 request.baseURL = config['proxy'];
@@ -79,9 +80,11 @@ export default class OverkizClient extends EventEmitter {
                 }
                 request.headers['X-Forward-Host'] = url.host;
             }
-            logger.debug(request.method?.toUpperCase(), request.url);
+            logger.debug(request.method?.toUpperCase(), request.baseURL + request.url);
             return request;
-        });
+        };
+
+        this.api = getApiClient(this.service);
         if(config['user'] && config['user']) {
             this.api.setCredentials(config['user'], config['password']);
         }

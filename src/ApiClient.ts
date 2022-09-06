@@ -1,6 +1,6 @@
-import axios, { AxiosInstance, AxiosPromise } from 'axios';
+import axios, { AxiosInstance } from 'axios';
 import { EventEmitter } from 'events';
-import { logger } from './Client';
+import { logger, interceptor } from './Client';
 import https from 'https';
 
 export default class ApiClient extends EventEmitter {
@@ -10,6 +10,11 @@ export default class ApiClient extends EventEmitter {
 
     private user?: string;
     private password?: string;
+
+    constructor() {
+        super();
+        this.client.interceptors.request.use(interceptor);
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     protected async authenticate(user: string, password: string): Promise<void> {
