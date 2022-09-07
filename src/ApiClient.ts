@@ -22,10 +22,7 @@ export default class ApiClient extends EventEmitter {
     }
     
     private request(options, reconnect: boolean) {
-        if(this.connectPromise === undefined) {
-            this.connectPromise = this.connect();
-        }
-        return this.connectPromise
+        return this.connect()
             .then(() => this.client(options))
             .then((response) => response.data)
             .catch((error) => {
@@ -76,15 +73,21 @@ export default class ApiClient extends EventEmitter {
         }
     }
 
-    public async connect() {
-        if(!this.user || !this.password) {
-            throw new Error('Invalid credentials provided');
+    public connect() {
+        if(this.connectPromise === undefined) {
+            if(!this.user || !this.password) {
+                throw new Error('Invalid credentials provided');
+            }
+            this.connectPromise = this.authenticate(this.user, this.password);
+            this.connectPromise.then(() => {
+                if(!this.isAuthenticated) {
+                    this.isAuthenticated = true;
+                    this.emit('connect');
+                }
+            });
+            
         }
-        await this.authenticate(this.user, this.password);
-        if(!this.isAuthenticated) {
-            this.isAuthenticated = true;
-            this.emit('connect');
-        }
+        return this.connectPromise;
     }
 
     public get(url: string, reconnect = true) {
