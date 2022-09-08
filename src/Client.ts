@@ -229,7 +229,7 @@ export default class OverkizClient extends EventEmitter {
                 //logger.debug('Polling events...');
                 const data = await this.api.post('/events/' + this.listenerId + '/fetch', undefined, false);
                 for (const event of data) {
-                    //logger.log(event);
+                    //logger.debug(event);
                     if (event.name === 'DeviceStateChangedEvent') {
                         const device = this.devices[event.deviceURL];
                         device.updateStates(event.deviceStates);
