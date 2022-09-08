@@ -187,13 +187,14 @@ export default class OverkizClient extends EventEmitter {
             }
 
             if (period > 0) {
-                if(this.pollingTaskId === null) {
+                this.pollingTaskId = setInterval(this.pollingTask.bind(this), period * 1000);
+                if(this.listenerId === null) {
                     logger.debug('Enable event polling period every ' + period + ' sec');
+                    // Run immediately the first execution to register listener
+                    this.pollingTask();
                 } else {
                     logger.debug('Change event polling period to ' + period + ' sec');
                 }
-                this.pollingTaskId = setInterval(this.pollingTask.bind(this), period * 1000);
-                this.pollingTask(); // Run immediately the first execution
             } else {
                 logger.debug('Disable event polling');
                 this.listenerId = null;
@@ -252,10 +253,9 @@ export default class OverkizClient extends EventEmitter {
                 if (error.includes('400') || error.includes('401') || error.includes('404')) {
                     // If not registered (400/404) or disconnected (401)
                     this.listenerId = null;
-                } else {
-                    // Will lock the poller for 10 sec in case of unknown error
-                    await this.delay(10 * 1000);
                 }
+                // Will lock the poller for 10 sec in case of unknown error
+                await this.delay(10 * 1000);
             }
         }
         if(this.listenerId === null) {

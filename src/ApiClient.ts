@@ -207,6 +207,7 @@ export class CloudApiClient extends ApiClient {
             + 'If your credentials are valid, please wait some hours to be unbanned';
         }
         try {
+            delete this.client.defaults.headers.common['Cookie'];
             const params = await this.getLoginParams(user, password);
             const response = await this.client.post('/login', params);
             const cookie = response.headers['set-cookie']?.find((cookie) => cookie.startsWith('JSESSIONID'))?.split(';')[0];
@@ -226,7 +227,7 @@ export class CloudApiClient extends ApiClient {
                 );
                 setTimeout(() => {
                     this.isLockedDown = false;
-                    this.lockdownDelay *= 2;
+                    this.lockdownDelay *= 4;
                 }, this.lockdownDelay * 1000);
             }
             throw error;
