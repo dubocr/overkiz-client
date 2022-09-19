@@ -395,7 +395,7 @@ export default class OverkizClient extends EventEmitter {
         return await this.api.get('/config/' + gatewayPin + '/local/tokens/devmode');
     }
 
-    public async deleteLocalApiTokens(gatewayPin: string, tokenUuid: string) {
+    public async deleteLocalApiToken(gatewayPin: string, tokenUuid: string) {
         return await this.api.delete('/config/' + gatewayPin + '/local/tokens/' + tokenUuid);
     }
 }
