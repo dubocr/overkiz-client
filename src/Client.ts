@@ -15,13 +15,13 @@ const EXEC_TIMEOUT = 2 * 60 * 1000;
 
 
 function getApiClient(service: string): ApiClient {
-    switch(service.toLowerCase()) {
+    switch (service.toLowerCase()) {
         case 'local': return new LocalApiClient();
         case 'tahoma':
         case 'tahoma_switch':
         case 'connexoon':
         case 'somfy_europe': return new CloudApiClient('ha101-1.overkiz.com');
-        case 'connexoon_rts': 
+        case 'connexoon_rts':
         case 'somfy_australia': return new CloudApiClient('ha201-1.overkiz.com');
         case 'somfy_north_america': return new CloudApiClient('ha401-1.overkiz.com');
         case 'flexom': return new CloudApiClient('ha108-1.overkiz.com');
@@ -71,11 +71,11 @@ export default class OverkizClient extends EventEmitter {
         }
 
         interceptor = (request) => {
-            if(config['proxy']) {
+            if (config['proxy']) {
                 const url = new URL(request.url?.startsWith('http') ? request.url : ((request.baseURL ?? '') + request.url));
                 request.baseURL = config['proxy'];
                 request.url = url.pathname;
-                if(request.headers === undefined) {
+                if (request.headers === undefined) {
                     request.headers = {};
                 }
                 request.headers['X-Forward-Host'] = url.host;
@@ -85,7 +85,7 @@ export default class OverkizClient extends EventEmitter {
         };
 
         this.api = getApiClient(this.service);
-        if(config['user'] && config['user']) {
+        if (config['user'] && config['user']) {
             this.api.setCredentials(config['user'], config['password']);
         }
 
@@ -188,7 +188,7 @@ export default class OverkizClient extends EventEmitter {
 
             if (period > 0) {
                 this.pollingTaskId = setInterval(this.pollingTask.bind(this), period * 1000);
-                if(this.listenerId === null) {
+                if (this.listenerId === null) {
                     logger.debug('Enable event polling period every ' + period + ' sec');
                     // Run immediately the first execution to register listener
                     this.pollingTask();
@@ -224,7 +224,7 @@ export default class OverkizClient extends EventEmitter {
     }
 
     private async fetchEvents() {
-        if(this.listenerId !== null) {
+        if (this.listenerId !== null) {
             try {
                 //logger.debug('Polling events...');
                 const data = await this.api.post('/events/' + this.listenerId + '/fetch', undefined, false);
@@ -258,15 +258,15 @@ export default class OverkizClient extends EventEmitter {
                 await this.delay(10 * 1000);
             }
         }
-        if(this.listenerId === null) {
+        if (this.listenerId === null) {
             try {
                 await this.registerListener();
-            } catch(error) {
+            } catch (error) {
                 logger.error('Registration error -', error);
                 // Will lock the poller for 10 sec in case of error
                 await this.delay(10 * 1000);
             }
-            
+
         }
     }
 
@@ -318,7 +318,7 @@ export default class OverkizClient extends EventEmitter {
 
         // In case 'RefreshAllDevicesStatesCompletedEvent' was not triggered before 30 sec, refresh manually
         setTimeout(() => {
-            if(this.refreshLock) {
+            if (this.refreshLock) {
                 this.refreshLock = false;
                 this.refreshDevices().catch((error) => logger.error(error));
             }
@@ -391,5 +391,9 @@ export default class OverkizClient extends EventEmitter {
 
     public async getLocalApiTokens(gatewayPin: string) {
         return await this.api.get('/config/' + gatewayPin + '/local/tokens/devmode');
+    }
+
+    public async deleteLocalApiTokens(gatewayPin: string, tokenUuid: string) {
+        return await this.api.delete('/config/' + gatewayPin + '/local/tokens/' + tokenUuid);
     }
 }
