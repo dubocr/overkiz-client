@@ -312,7 +312,7 @@ export default class OverkizClient extends EventEmitter {
         return this.api.get('/actionGroups');
     }
 
-    public async refreshAllStates(devices: Array<string> = []) {
+    public async refreshAllStates(devices?: Array<string>) {
         this.refreshLock = true;
         await this.api.post('/setup/devices/states/refresh', devices);
 

@@ -20,7 +20,7 @@ export default class ApiClient extends EventEmitter {
     protected async authenticate(user: string, password: string): Promise<void> {
         return;
     }
-    
+
     private request(options, reconnect: boolean) {
         return this.connect()
             .then(() => this.client(options))
@@ -39,11 +39,11 @@ export default class ApiClient extends EventEmitter {
                     if (error.response.status === 401) {
                         // Session expired
                         this.connectPromise = undefined;
-                        if(this.isAuthenticated) {
+                        if (this.isAuthenticated) {
                             this.isAuthenticated = false;
                             logger.debug('Session expired:', msg);
                             this.emit('disconnect');
-                            if(reconnect) {
+                            if (reconnect) {
                                 return this.request(options, false);
                             }
                         }
@@ -67,27 +67,26 @@ export default class ApiClient extends EventEmitter {
 
     public async restoreSession(authenticated: boolean) {
         this.isAuthenticated = authenticated;
-        if(this.isAuthenticated) {
+        if (this.isAuthenticated) {
             this.connectPromise = Promise.resolve();
             this.emit('connect');
         }
     }
 
-    public connect() {
-        if(this.connectPromise === undefined) {
-            if(!this.user || !this.password) {
+    public async connect() {
+        if (this.connectPromise === undefined) {
+            if (!this.user || !this.password) {
                 throw new Error('Invalid credentials provided');
             }
             this.connectPromise = this.authenticate(this.user, this.password);
-            this.connectPromise.then(() => {
-                if(!this.isAuthenticated) {
-                    this.isAuthenticated = true;
-                    this.emit('connect');
-                }
-            });
-            
+            await this.connectPromise;
+            if (!this.isAuthenticated) {
+                this.isAuthenticated = true;
+                this.emit('connect');
+            }
+        } else {
+            await this.connectPromise;
         }
-        return this.connectPromise;
     }
 
     public get(url: string, reconnect = true) {
@@ -128,15 +127,15 @@ export class LocalApiClient extends ApiClient {
 
     protected async authenticate(user: string, password: string): Promise<void> {
         let domain;
-        if(user.match(LocalApiClient.IPV4_REGEXP)) {
+        if (user.match(LocalApiClient.IPV4_REGEXP)) {
             domain = user;
-        } else if(user.match(LocalApiClient.PIN_REGEXP)) {
+        } else if (user.match(LocalApiClient.PIN_REGEXP)) {
             domain = 'gateway-' + user + '.local';
-            if(typeof process === 'object') {
+            if (typeof process === 'object') {
                 // mDNS lookup on nodeJS only
                 try {
                     domain = await this.findGatewayIP(user);
-                } catch(error) {
+                } catch (error) {
                     logger.warn('No gateway found on your network:', error);
                     logger.warn('Please check gateway pin number and make sur developer mode is activated.');
                     logger.warn('For more information: https://developer.somfy.com/developer-mode');
@@ -147,7 +146,7 @@ export class LocalApiClient extends ApiClient {
         }
         this.client.defaults.baseURL = 'https://' + domain + ':8443/enduser-mobile-web/1/enduserAPI';
         this.client.defaults.headers.common['Authorization'] = 'Bearer ' + password;
-        this.client.defaults.httpsAgent = new https.Agent({  
+        this.client.defaults.httpsAgent = new https.Agent({
             rejectUnauthorized: false,
         });
         // Test API endpoint to validate credentials
@@ -166,10 +165,10 @@ export class LocalApiClient extends ApiClient {
                 { type: 'kizboxdev' },
                 (service) => {
                     logger.debug('Gateway service found:', service.name);
-                    if(service.txt.gateway_pin === gatewayPin) {
+                    if (service.txt.gateway_pin === gatewayPin) {
                         clearTimeout(timeout);
-                        for(const ip of service.addresses) {
-                            if(ip.match(LocalApiClient.IPV4_REGEXP)) {
+                        for (const ip of service.addresses) {
+                            if (ip.match(LocalApiClient.IPV4_REGEXP)) {
                                 logger.debug('Gateway IPv4 is ' + ip);
                                 resolve(ip);
                             }
@@ -191,7 +190,7 @@ export class CloudApiClient extends ApiClient {
     constructor(private readonly host: string) {
         super();
         this.client.defaults.baseURL = 'https://' + host + '/enduser-mobile-web/enduserAPI';
-        if(typeof window !== 'undefined' && this.isAuthenticated === undefined) {
+        if (typeof window !== 'undefined' && this.isAuthenticated === undefined) {
             // Try connection with cookie on browser
             this.client.get('/authenticated')
                 .then((result) => this.restoreSession(result.data.authenticated))
@@ -211,13 +210,13 @@ export class CloudApiClient extends ApiClient {
             const params = await this.getLoginParams(user, password);
             const response = await this.client.post('/login', params);
             const cookie = response.headers['set-cookie']?.find((cookie) => cookie.startsWith('JSESSIONID'))?.split(';')[0];
-            if(cookie) {
+            if (cookie) {
                 this.client.defaults.headers.common['Cookie'] = cookie;
             }
             this.lockdownDelay = 60;
-        } catch(error: any) {
+        } catch (error: any) {
             //error.response.data.errorCode === 'AUTHENTICATION_ERROR'
-            if(error.response.status >= 400 && error.response.status < 500) {
+            if (error.response && error.response.status >= 400 && error.response.status < 500) {
                 this.isLockedDown = true;
                 logger.warn(
                     'API client will be locked for ' + this.getLockdownString()
@@ -242,9 +241,9 @@ export class CloudApiClient extends ApiClient {
     }
 
     getLockdownString() {
-        if(this.lockdownDelay > 3600) {
+        if (this.lockdownDelay > 3600) {
             return Math.round(this.lockdownDelay / 3600) + ' hours';
-        } else if(this.lockdownDelay > 60) {
+        } else if (this.lockdownDelay > 60) {
             return Math.round(this.lockdownDelay / 60) + ' minutes';
         } else {
             return this.lockdownDelay + ' seconds';
@@ -279,8 +278,8 @@ export class CloudJWTApiClient extends CloudApiClient {
         params.append('grant_type', 'password');
         params.append('username', user);
         params.append('password', password);
-        const result = await this.client.post(this.accessTokenUrl, params, {headers});
-        if(!result.data.access_token) {
+        const result = await this.client.post(this.accessTokenUrl, params, { headers });
+        if (!result.data.access_token) {
             throw new Error('Invalid credentials');
         }
         return result.data.access_token;
@@ -290,7 +289,7 @@ export class CloudJWTApiClient extends CloudApiClient {
         const headers = {
             'Authorization': `Bearer ${token}`,
         };
-        const result = await this.client.get(this.jwtUrl, {headers});
+        const result = await this.client.get(this.jwtUrl, { headers });
         return result.data.trim();
     }
 }

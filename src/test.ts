@@ -5,8 +5,8 @@ import { default as Device, State } from './models/Device';
 import Gateway from './models/Gateway';
 
 dotenv.config();
-process.on('unhandledRejection', console.error);
-process.on('uncaughtException', console.error);
+process.on('unhandledRejection', (error) => console.error('unhandledRejection: ', error));
+process.on('uncaughtException', (error) => console.error('uncaughtException: ', error));
 
 async function main() {
     const client = new Client(console, {
@@ -14,17 +14,18 @@ async function main() {
         user: process.env.USERNAME,
         password: process.env.PASSWORD,
         proxy: process.env.PROXY,
-        pollingPeriod: 30,
+        pollingPeriod: 10,
         refreshPeriod: 60,
+        debug: true,
     });
     //client.setCredentials(process.env.USERNAME, process.env.PASSWORD);
 
     const setup = await client.getSetup();
-    console.log(`${setup.gateways.length} gateways`);
+    /*console.log(`${setup.gateways.length} gateways`);
     setup.gateways.forEach((gateway: Gateway) => {
         console.log(`- ${gateway.gatewayId}`);
 
-    });
+    });*/
 
     console.log(`${setup.devices.length} devices`);
     setup.devices.forEach((device: Device) => {
@@ -38,32 +39,32 @@ async function main() {
 
     process.openStdin().addListener('data', async (d) => {
         const data = d.toString().trim();
-        switch(data) {
-            case 'a': 
+        switch (data) {
+            case 'a':
                 //await client.refreshStates();
                 await client.refreshAllStates();
                 break;
-            case 's': 
+            case 's':
                 await client.getSetup();
                 break;
-            case 't': 
-                if(process.env.GATEWAY) {
+            case 't':
+                if (process.env.GATEWAY) {
                     const token = await client.createLocalApiToken(process.env.GATEWAY, 'Token TEST');
                     console.log(token);
                 }
                 break;
-            case 'g': 
-                if(process.env.GATEWAY) {
+            case 'g':
+                if (process.env.GATEWAY) {
                     const tokens = await client.getLocalApiTokens(process.env.GATEWAY);
                     console.log(tokens);
                 }
                 break;
             case '': break;
-            default: 
+            default:
                 console.log('Input: ' + data);
                 await client.refreshDeviceStates(data);
                 break;
         }
     });
 }
-main().catch(console.error);
+main().catch((error) => console.error('Main error: ', error));
