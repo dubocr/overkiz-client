@@ -7,6 +7,7 @@ import ApiClient, { CloudApiClient, CloudJWTApiClient, LocalApiClient } from './
 import Location from './models/Location';
 import Gateway from './models/Gateway';
 import Setup from './models/Setup';
+import LocalApiToken from './models/LocalApiToken';
 
 export let logger;
 export let interceptor;
@@ -380,16 +381,17 @@ export default class OverkizClient extends EventEmitter {
         const data = await this.api.get('/config/' + gatewayPin + '/local/tokens/generate');
         logger.debug(data);
         const token = {
-            'label': tokenLabel,
-            'token': data.token,
-            'scope': 'devmode',
+            label: tokenLabel,
+            gatewayId: gatewayPin,
+            token: data.token,
+            scope: 'devmode',
         };
         const resp = await this.api.post('/config/' + gatewayPin + '/local/tokens', token);
         logger.debug(resp);
         return token;
     }
 
-    public async getLocalApiTokens(gatewayPin: string) {
+    public async getLocalApiTokens(gatewayPin: string): Promise<LocalApiToken[]> {
         return await this.api.get('/config/' + gatewayPin + '/local/tokens/devmode');
     }
 
