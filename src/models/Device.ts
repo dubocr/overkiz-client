@@ -36,7 +36,7 @@ export default class Device extends EventEmitter {
     public sensors: Device[] = [];
 
     get uuid() {
-        if(this.oid && this.oid.length > 0) {
+        if (this.oid && this.oid.length > 0) {
             return validateUUID(this.oid) ? this.oid : UUIDv5(this.oid, '6ba7b812-9dad-11d1-80b4-00c04fd430c8');
         } else {
             return UUIDv5(this.deviceURL, '6ba7b812-9dad-11d1-80b4-00c04fd430c8');
@@ -115,11 +115,19 @@ export default class Device extends EventEmitter {
                 return false;//device.isMainDevice();
             case 'io:AtlanticPassAPCZoneTemperatureSensor':
                 return device.definition.uiClass === 'HeatingSystem';
+            case 'io:HeatingRelatedElectricalEnergyConsumptionSensor':
+                return device.controllableName === 'io:AtlanticPassAPCHeatPumpMainComponent';
+            case 'io:DHWRelatedElectricalEnergyConsumptionSensor':
+                return device.controllableName === 'io:AtlanticPassAPCDHWComponent';
             default:
-                // TODO: Temporary patch to expose sensor as standalone device in Homebridge
-                return this.definition.widgetName === 'TemperatureSensor'
-                    && device.definition.uiClass === 'HeatingSystem';
-                    //this.definition.type === 'SENSOR';
+                break;
+        }
+        switch (this.definition.widgetName) {
+            case 'TemperatureSensor':
+                return device.definition.uiClass === 'HeatingSystem';
+            //this.definition.type === 'SENSOR';
+            default:
+                break;
         }
     }
 
@@ -140,14 +148,14 @@ export default class Device extends EventEmitter {
     }
 
     updateStates(states: State[]) {
-        if(this.pendingUpdateTimer !== null) {
+        if (this.pendingUpdateTimer !== null) {
             clearTimeout(this.pendingUpdateTimer);
         }
-        for(const newState of states) {
+        for (const newState of states) {
             const state = this.getState(newState.name);
-            if(state) {
+            if (state) {
                 // Ignore state type 10 and 11 (object and array of object)
-                if(state.type !== 10 && state.type !== 11 && state.value !== newState.value) {
+                if (state.type !== 10 && state.type !== 11 && state.value !== newState.value) {
                     state.value = newState.value;
                     this.pendingUpdate.set(newState.name, newState);
                 }
@@ -158,7 +166,7 @@ export default class Device extends EventEmitter {
         }
         this.pendingUpdateTimer = setTimeout(() => {
             this.pendingUpdateTimer = null;
-            if(this.pendingUpdate.size > 0) {
+            if (this.pendingUpdate.size > 0) {
                 this.emit('states', Array.from(this.pendingUpdate.values()));
                 this.pendingUpdate = new Map();
             }

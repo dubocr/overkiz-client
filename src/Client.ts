@@ -53,6 +53,7 @@ export default class OverkizClient extends EventEmitter {
     private refreshPeriod: number;
     private execPollingPeriod: number;
     private eventPollingPeriod = 0;
+    private pollingErrorLockDuration = 10;
 
     private pollingTaskId: NodeJS.Timeout | null = null;
     private refreshTaskId: NodeJS.Timeout | null = null;
@@ -69,6 +70,16 @@ export default class OverkizClient extends EventEmitter {
 
         if (this.refreshPeriod < 1800) {
             this.log.warn('WARNING: Setting refreshPeriod lower than 30 minutes is discouraged.');
+        }
+        if (this.pollingPeriod < 10 && this.pollingPeriod != 0) {
+            this.log.error('ERROR: pollingPeriod must be higher than 10 or equals to 0.');
+            this.pollingPeriod = 60;
+        }
+        if (this.pollingPeriod < 30) {
+            this.log.warn('WARNING: Setting pollingPeriod lower than 30 seconds is discouraged.');
+        }
+        if (this.pollingPeriod > 60) {
+            this.log.warn('WARNING: Setting pollingPeriod higher than 60 seconds can generate session timeout errors.');
         }
 
         interceptor = (request) => {
@@ -249,23 +260,27 @@ export default class OverkizClient extends EventEmitter {
                         this.refreshDevices();
                     }
                 }
+                this.pollingErrorLockDuration = 10;
             } catch (error: any) {
                 logger.error('Polling error -', error);
                 if (error.includes('400') || error.includes('401') || error.includes('404')) {
                     // If not registered (400/404) or disconnected (401)
                     this.listenerId = null;
                 }
-                // Will lock the poller for 10 sec in case of unknown error
-                await this.delay(10 * 1000);
+                // Will lock the poller in case of unknown error
+                await this.delay(this.pollingErrorLockDuration * 1000);
+                this.pollingErrorLockDuration *= 2;
             }
         }
         if (this.listenerId === null) {
             try {
                 await this.registerListener();
+                this.pollingErrorLockDuration = 10;
             } catch (error) {
                 logger.error('Registration error -', error);
-                // Will lock the poller for 10 sec in case of error
-                await this.delay(10 * 1000);
+                // Will lock the poller in case of error
+                await this.delay(this.pollingErrorLockDuration * 1000);
+                this.pollingErrorLockDuration *= 2;
             }
 
         }
@@ -279,6 +294,7 @@ export default class OverkizClient extends EventEmitter {
         const devices = data.map((device) => Object.assign(new Device(), device));
         let lastMainDevice: Device | null = null;
         let lastDevice: Device | null = null;
+        let lastSubDevices: Array<Device>;
         const physicalDevices = new Array<Device>();
         devices.forEach((device) => {
             if (this.devices[device.deviceURL]) {
@@ -289,6 +305,7 @@ export default class OverkizClient extends EventEmitter {
             if (device.isMainDevice()) {
                 lastMainDevice = device;
                 lastDevice = device;
+                lastSubDevices = [device];
                 physicalDevices.push(device);
             } else {
                 if (lastDevice !== null && device.isSensorOf(lastDevice)) {
@@ -296,9 +313,19 @@ export default class OverkizClient extends EventEmitter {
                 } else if (lastMainDevice !== null && device.isSensorOf(lastMainDevice)) {
                     lastMainDevice.addSensor(device);
                 } else {
-                    lastDevice = device;
-                    device.parent = lastMainDevice;
-                    physicalDevices.push(device);
+                    let found = false;
+                    for (const d of lastSubDevices) {
+                        if (device.isSensorOf(d)) {
+                            found = true;
+                            d.addSensor(device);
+                        }
+                    }
+                    if (!found) {
+                        lastDevice = device;
+                        lastSubDevices.push(device);
+                        device.parent = lastMainDevice;
+                        physicalDevices.push(device);
+                    }
                 }
             }
         });
