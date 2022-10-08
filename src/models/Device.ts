@@ -119,6 +119,9 @@ export default class Device extends EventEmitter {
                 return device.controllableName === 'io:AtlanticPassAPCHeatPumpMainComponent';
             case 'io:DHWRelatedElectricalEnergyConsumptionSensor':
                 return device.controllableName === 'io:AtlanticPassAPCDHWComponent';
+            case 'io:CumulatedElectricalEnergyConsumptionIOSystemDeviceSensor':
+                return device.controllableName === 'io:AtlanticElectricalHeaterWithAdjustableTemperatureSetpointIOComponent' ||
+                    device.controllableName === 'io:AtlanticElectricalTowelDryerIOComponent';
             default:
                 break;
         }
