@@ -28,9 +28,9 @@ function getApiClient(service: string): ApiClient {
         case 'flexom': return new CloudApiClient('ha108-1.overkiz.com');
         case 'cozytouch': return new CloudJWTApiClient(
             'ha110-1.overkiz.com',
-            'https://api.groupe-atlantic.com/token',
-            'https://api.groupe-atlantic.com/gacoma/gacomawcfservice/accounts/jwt',
-            'czduc0RZZXdWbjVGbVV4UmlYN1pVSUM3ZFI4YTphSDEzOXZmbzA1ZGdqeDJkSFVSQkFTbmhCRW9h',
+            'https://apis.groupe-atlantic.com/token',
+            'https://apis.groupe-atlantic.com/magellan/accounts/jwt',
+            'Q3RfMUpWeVRtSUxYOEllZkE3YVVOQmpGblpVYToyRWNORHpfZHkzNDJVSnFvMlo3cFNKTnZVdjBh',
         );
         case 'rexel': return new CloudApiClient('ha112-1.overkiz.com');
         case 'hi_kumo': return new CloudApiClient('ha117-1.overkiz.com');
@@ -71,14 +71,14 @@ export default class OverkizClient extends EventEmitter {
         if (this.refreshPeriod < 1800) {
             this.log.warn('WARNING: Setting refreshPeriod lower than 30 minutes is discouraged.');
         }
-        if (this.pollingPeriod < 10 && this.pollingPeriod != 0) {
+        if (this.pollingPeriod < 10 && this.pollingPeriod != 0 && this.service !== 'local') {
             this.log.error('ERROR: pollingPeriod must be higher than 10 or equals to 0.');
             this.pollingPeriod = 60;
         }
-        if (this.pollingPeriod < 30) {
+        if (this.pollingPeriod < 30 && this.service !== 'local') {
             this.log.warn('WARNING: Setting pollingPeriod lower than 30 seconds is discouraged.');
         }
-        if (this.pollingPeriod > 60) {
+        if (this.pollingPeriod > 60 && this.service !== 'local') {
             this.log.warn('WARNING: Setting pollingPeriod higher than 60 seconds can generate session timeout errors.');
         }
 
