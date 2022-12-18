@@ -244,7 +244,7 @@ export default class OverkizClient extends EventEmitter {
                     //logger.debug(event);
                     if (event.name === 'DeviceStateChangedEvent') {
                         const device = this.devices[event.deviceURL];
-                        device.updateStates(event.deviceStates);
+                        device?.updateStates(event.deviceStates);
                     } else if (event.name === 'ExecutionStateChangedEvent') {
                         const execution = this.executionPool[event.execId];
                         if (execution) {
@@ -263,7 +263,7 @@ export default class OverkizClient extends EventEmitter {
                 this.pollingErrorLockDuration = 10;
             } catch (error: any) {
                 logger.error('Polling error -', error);
-                if (error.includes('400') || error.includes('401') || error.includes('404')) {
+                if (error !== null && (error.includes('400') || error.includes('401') || error.includes('404'))) {
                     // If not registered (400/404) or disconnected (401)
                     this.listenerId = null;
                 }
