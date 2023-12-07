@@ -264,6 +264,7 @@ export class CloudJWTApiClient extends CloudApiClient {
     async getLoginParams(user: string, password: string): Promise<URLSearchParams> {
         const accesToken = await this.getAccessToken(user, password);
         const jwt = await this.getJwt(accesToken);
+        //console.log(jwt);
 
         const params = new URLSearchParams();
         params.append('jwt', jwt);
@@ -276,7 +277,7 @@ export class CloudJWTApiClient extends CloudApiClient {
         };
         const params = new URLSearchParams();
         params.append('grant_type', 'password');
-        params.append('username', user);
+        params.append('username', 'GA-PRIVATEPERSON/' + user);
         params.append('password', password);
         const result = await this.client.post(this.accessTokenUrl, params, { headers });
         if (!result.data.access_token) {
