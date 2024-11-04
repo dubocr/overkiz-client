@@ -342,7 +342,7 @@ export default class OverkizClient extends EventEmitter {
 
     public async refreshAllStates(devices: Array<string> = []) {
         this.refreshLock = true;
-        await this.api.post('/setup/devices/states/refresh', devices);
+        await this.api.post('/setup/devices/states/refresh', devices).catch(() => null);
 
         // In case 'RefreshAllDevicesStatesCompletedEvent' was not triggered before 30 sec, refresh manually
         setTimeout(() => {
