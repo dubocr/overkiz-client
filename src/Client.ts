@@ -257,7 +257,7 @@ export default class OverkizClient extends EventEmitter {
                     } else if (event.name === 'RefreshAllDevicesStatesCompletedEvent') {
                         this.refreshLock = false;
                         logger.debug('Refresh all states completed');
-                        this.refreshDevices();
+                        this.refreshDevices().catch((error) => logger.error(error));
                     }
                 }
                 this.pollingErrorLockDuration = 10;
