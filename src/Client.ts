@@ -45,7 +45,7 @@ export default class OverkizClient extends EventEmitter {
 
     private fetchLock = false;
     private refreshLock = false;
-    private executionPool: Execution[] = [];
+    private executionPool: Record<string, Execution> = {};
 
     private devices: Array<Device> = new Array<Device>();
 
@@ -149,7 +149,7 @@ export default class OverkizClient extends EventEmitter {
     */
     async execute(oid, execution) {
         //logger.debug(JSON.stringify(execution));
-        if (this.executionPool.length >= 10) {
+        if (Object.keys(this.executionPool).length >= 10) {
             // Avoid EXEC_QUEUE_FULL (max 10 commands simultaneous)
             // Postpone in 10 sec
             await this.delay(10 * 1000);
