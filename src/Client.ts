@@ -65,10 +65,12 @@ export default class OverkizClient extends EventEmitter {
         // Default values
         this.execPollingPeriod = config['execPollingPeriod'] || 5; // Poll for execution events every 5 seconds by default (in seconds)
         this.pollingPeriod = config['pollingPeriod'] || 60; // Poll for events every 60 seconds by default (in seconds)
-        this.refreshPeriod = (config['refreshPeriod'] || 30) * 60; // Refresh device states every 30 minutes by default (in minutes)
+        // Refresh device states every 30 minutes by default. An explicit zero disables it.
+        const refreshPeriod = config['refreshPeriod'];
+        this.refreshPeriod = (refreshPeriod === 0 ? 0 : refreshPeriod || 30) * 60;
         this.service = config['service'] || 'somfy_europe';
 
-        if (this.refreshPeriod < 1800) {
+        if (this.refreshPeriod !== 0 && this.refreshPeriod < 1800) {
             this.log.warn('WARNING: Setting refreshPeriod lower than 30 minutes is discouraged.');
         }
         if (this.pollingPeriod < 10 && this.pollingPeriod !== 0 && this.service !== 'local') {
